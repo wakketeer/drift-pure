@@ -1307,9 +1307,9 @@ function renderBiomeDecorations(ctx, track) {
 // Animated water-surface shimmer (world-space, behind the road)
 function renderWaves() {
   ctx.save();
-  ctx.strokeStyle = 'rgba(110,188,255,0.07)';
+  ctx.strokeStyle = 'rgba(130,200,255,0.13)';
   ctx.lineWidth = 1.5;
-  const step = 85, t = frameCount * 0.022;
+  const step = 70, t = frameCount * 0.022;
   const wx0 = camera.x - W, wx1 = camera.x + W;
   for (let wy = Math.floor((camera.y - H) / step) * step; wy < camera.y + H; wy += step) {
     ctx.beginPath();
@@ -1325,27 +1325,55 @@ function renderWaves() {
 
 // Animated snowfall (screen-space, in front of world)
 function renderSnowfall() {
-  for (let i = 0; i < 65; i++) {
-    const speed  = 0.38 + (i % 6) * 0.10;
-    const drift  = Math.sin(frameCount * 0.007 + i * 0.9) * 0.6;
-    const x      = ((i * 199.4 + frameCount * drift) % (W + 20) + W + 20) % (W + 20);
-    const y      = ((i * 117.3 + frameCount * speed) % (H + 10) + H + 10) % (H + 10);
-    const radius = 0.7 + (i % 4) * 0.35;
-    const alpha  = 0.35 + (i % 3) * 0.18;
-    ctx.fillStyle = `rgba(235,245,255,${alpha})`;
-    ctx.beginPath(); ctx.arc(x, y, radius, 0, TAU); ctx.fill();
+  for (let i = 0; i < 75; i++) {
+    const speed = 0.55 + (i % 6) * 0.14;
+    const drift = Math.sin(frameCount * 0.009 + i * 0.88) * 0.9;
+    const x = ((i * 199.4 + frameCount * drift) % (W + 20) + W + 20) % (W + 20);
+    const y = ((i * 117.3 + frameCount * speed) % (H + 10) + H + 10) % (H + 10);
+    const alpha = 0.72 + (i % 3) * 0.09;
+
+    if (i % 4 === 0) {
+      // Shaped snowflake — 6-arm cross, slowly rotating
+      const r = 4.5 + (i % 4) * 1.2;
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(frameCount * 0.012 + i * 0.55);
+      ctx.strokeStyle = `rgba(255,255,255,${alpha})`;
+      ctx.lineWidth = 1.5;
+      for (let arm = 0; arm < 3; arm++) {
+        ctx.beginPath(); ctx.moveTo(-r, 0); ctx.lineTo(r, 0); ctx.stroke();
+        // Small side branches
+        ctx.beginPath(); ctx.moveTo(-r*0.55, -r*0.28); ctx.lineTo(-r*0.55, r*0.28); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo( r*0.55, -r*0.28); ctx.lineTo( r*0.55, r*0.28); ctx.stroke();
+        ctx.rotate(Math.PI / 3);
+      }
+      ctx.restore();
+    } else {
+      // Simple round flake — still nicely sized
+      const r = 1.8 + (i % 5) * 0.55;
+      ctx.fillStyle = `rgba(255,255,255,${alpha})`;
+      ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill();
+    }
   }
 }
 
 // Twinkling stars (screen-space, rendered behind world in renderGame)
 function renderStars() {
-  for (let i = 0; i < 90; i++) {
+  for (let i = 0; i < 110; i++) {
     const x       = (i * 199.4 + Math.floor(i / 3) * 57) % W;
-    const y       = (i * 117.3 + Math.floor(i / 5) * 43) % (H * 0.82);
-    const twinkle = 0.25 + Math.sin(frameCount * 0.04 + i * 1.37) * 0.22;
-    const radius  = 0.4 + (i % 5) * 0.22;
-    ctx.fillStyle = `rgba(255,252,230,${twinkle})`;
+    const y       = (i * 117.3 + Math.floor(i / 5) * 43) % (H * 0.88);
+    const twinkle = 0.55 + Math.sin(frameCount * 0.045 + i * 1.37) * 0.38;
+    const radius  = 0.7 + (i % 5) * 0.28;
+    ctx.fillStyle = `rgba(255,252,220,${twinkle})`;
     ctx.beginPath(); ctx.arc(x, y, radius, 0, TAU); ctx.fill();
+    // Occasional cross-glint on brighter stars
+    if (i % 7 === 0 && twinkle > 0.8) {
+      const gl = radius * 3.5;
+      ctx.strokeStyle = `rgba(255,252,220,${(twinkle - 0.5) * 0.5})`;
+      ctx.lineWidth = 0.6;
+      ctx.beginPath(); ctx.moveTo(x - gl, y); ctx.lineTo(x + gl, y); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x, y - gl); ctx.lineTo(x, y + gl); ctx.stroke();
+    }
   }
 }
 
