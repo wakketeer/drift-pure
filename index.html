@@ -286,16 +286,28 @@ function ensurePlayerName() {
   return playerName;
 }
 
+function sanitizeKey(str) {
+  // Firebase keys cannot contain . # $ / [ ]
+  return str.replace(/[.#$\/\[\]]/g, '_').slice(0, 20) || 'anon';
+}
+
 function submitScore(score, trackName, time) {
   if (!fbDb || score <= 0) return;
-  try {
-    fbDb.ref('scores').push({
-      name: ensurePlayerName(), score,
-      track: trackName,
-      time: Math.round(time * 100) / 100,
-      ts: Date.now()
-    });
-  } catch(e) {}
+  const name = ensurePlayerName();
+  const key = sanitizeKey(name);
+  const ref = fbDb.ref('scores/' + key);
+  // Only write if this beats the player's existing best score
+  ref.once('value', snap => {
+    const existing = snap.val();
+    if (!existing || score > existing.score) {
+      ref.set({
+        name, score,
+        track: trackName,
+        time: Math.round(time * 100) / 100,
+        ts: Date.now()
+      }).catch(() => {});
+    }
+  }).catch(() => {});
 }
 
 // --- CAR DEFINITIONS ---
