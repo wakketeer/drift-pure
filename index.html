@@ -16,6 +16,8 @@ body {
 }
 canvas { display: block; }
 </style>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
 </head>
 <body>
 <canvas id="gameCanvas"></canvas>
@@ -241,6 +243,59 @@ function playResultsTune(score) {
     setTimeout(() => playTone(784,  0.15, 0.15), 740);
     setTimeout(() => playTone(1047, 0.55, 0.22), 900);
   }
+}
+
+// --- FIREBASE LEADERBOARD ---
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyDEvSadDGG9MButoypYxZLIy2eiIwspLu4",
+  authDomain: "drift-pure.firebaseapp.com",
+  databaseURL: "https://drift-pure-default-rtdb.firebaseio.com",
+  projectId: "drift-pure",
+  storageBucket: "drift-pure.firebasestorage.app",
+  messagingSenderId: "34670997220",
+  appId: "1:34670997220:web:4209b687d4f7af7154c6f1"
+};
+let fbDb = null;
+let playerName = localStorage.getItem('driftpure_name') || '';
+let leaderboardData = [];
+let leaderboardLoaded = false;
+
+function initFirebase() {
+  try {
+    if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
+    fbDb = firebase.database();
+  } catch(e) { console.log('Firebase init failed:', e); }
+}
+
+function refreshLeaderboard() {
+  if (!fbDb) return;
+  leaderboardLoaded = false;
+  fbDb.ref('scores').orderByChild('score').limitToLast(10).once('value', snap => {
+    leaderboardData = [];
+    snap.forEach(child => leaderboardData.unshift(child.val()));
+    leaderboardLoaded = true;
+  });
+}
+
+function ensurePlayerName() {
+  if (!playerName) {
+    const n = (prompt('Enter your name for the leaderboard:') || '').trim();
+    playerName = n.slice(0, 18) || 'Anonymous';
+    localStorage.setItem('driftpure_name', playerName);
+  }
+  return playerName;
+}
+
+function submitScore(score, trackName, time) {
+  if (!fbDb || score <= 0) return;
+  try {
+    fbDb.ref('scores').push({
+      name: ensurePlayerName(), score,
+      track: trackName,
+      time: Math.round(time * 100) / 100,
+      ts: Date.now()
+    });
+  } catch(e) {}
 }
 
 // --- CAR DEFINITIONS ---
@@ -710,6 +765,7 @@ function finishRace() {
       saveData.unlockedTracks[i] = true;
     }
   }
+  submitScore(totalDriftScore, currentTrack.name, raceTime);
   saveSave();
   stopEngineSound();
   setTimeout(() => playResultsTune(totalDriftScore), 350);
@@ -723,6 +779,7 @@ function render() {
     case 'menu': renderMenu(); break;
     case 'trackSelect': renderTrackSelect(); break;
     case 'carSelect': renderCarSelect(); break;
+    case 'leaderboard': renderLeaderboard(); break;
     case 'playing': renderGame(); break;
     case 'paused': renderGame(); renderPause(); break;
     case 'results': renderGame(); renderResults(); break;
@@ -735,8 +792,8 @@ function getMenuButtons() {
   const btnW = Math.min(200, W * 0.5);
   const btnH = 50;
   const startY = H * 0.48;
-  return ['RACE', 'CARS', 'HOW TO PLAY'].map((label, i) => ({
-    label, x: W/2 - btnW/2, y: startY + i * 65, w: btnW, h: btnH
+  return ['RACE', 'LEADERBOARD', 'CARS', 'HOW TO PLAY'].map((label, i) => ({
+    label, x: W/2 - btnW/2, y: startY + i * 58, w: btnW, h: btnH
   }));
 }
 
@@ -935,6 +992,68 @@ function renderCarSelect() {
   ctx.font = `200 14px Helvetica Neue, Arial`;
   ctx.textAlign = 'center';
   ctx.fillText('TAP HERE OR ESC TO GO BACK', W/2, H * 0.95);
+}
+
+function renderLeaderboard() {
+  ctx.fillStyle = BG;
+  ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = DARK;
+  ctx.font = 'bold ' + Math.min(32, W/12) + 'px Helvetica Neue, Arial';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('LEADERBOARD', W/2, H * 0.08);
+  ctx.fillStyle = ACCENT;
+  ctx.fillRect(W/2 - 40, H * 0.13, 80, 2);
+
+  if (!leaderboardLoaded) {
+    ctx.fillStyle = MID;
+    ctx.font = '200 ' + Math.min(14, W/25) + 'px Helvetica Neue, Arial';
+    ctx.fillText('Loading...', W/2, H * 0.5);
+  } else if (leaderboardData.length === 0) {
+    ctx.fillStyle = MID;
+    ctx.font = '200 ' + Math.min(14, W/25) + 'px Helvetica Neue, Arial';
+    ctx.fillText('No scores yet — be the first!', W/2, H * 0.5);
+  } else {
+    const rowH = Math.min(52, (H * 0.72) / 10);
+    const startY = H * 0.18;
+    const lx = W * 0.08, rx = W * 0.92;
+    ctx.fillStyle = MID;
+    ctx.font = '200 ' + Math.min(10, W/40) + 'px Helvetica Neue, Arial';
+    ctx.textAlign = 'left';  ctx.fillText('PLAYER', lx + W*0.08, startY);
+    ctx.textAlign = 'right'; ctx.fillText('SCORE', rx - W*0.12, startY);
+    ctx.textAlign = 'right'; ctx.fillText('TRACK', rx, startY);
+    leaderboardData.forEach((entry, i) => {
+      const y = startY + rowH * 0.9 + i * rowH;
+      const isFirst = i === 0;
+      const isMe = entry.name === playerName;
+      if (isMe) {
+        ctx.fillStyle = 'rgba(52,152,219,0.07)';
+        ctx.fillRect(lx, y - rowH * 0.55, rx - lx, rowH * 0.85);
+      } else if (isFirst) {
+        ctx.fillStyle = 'rgba(231,76,60,0.06)';
+        ctx.fillRect(lx, y - rowH * 0.55, rx - lx, rowH * 0.85);
+      }
+      ctx.fillStyle = isFirst ? ACCENT : MID;
+      ctx.font = 'bold ' + Math.min(13, W/30) + 'px Helvetica Neue, Arial';
+      ctx.textAlign = 'left';
+      ctx.fillText('#' + (i + 1), lx, y);
+      ctx.fillStyle = isMe ? ACCENT2 : DARK;
+      ctx.font = (isFirst ? 'bold' : '300') + ' ' + Math.min(14, W/28) + 'px Helvetica Neue, Arial';
+      ctx.textAlign = 'left';
+      ctx.fillText(entry.name || 'Anonymous', lx + W*0.07, y);
+      ctx.fillStyle = isFirst ? ACCENT : DARK;
+      ctx.font = 'bold ' + Math.min(14, W/28) + 'px Helvetica Neue, Arial';
+      ctx.textAlign = 'right';
+      ctx.fillText((entry.score || 0).toLocaleString(), rx - W*0.12, y);
+      ctx.fillStyle = MID;
+      ctx.font = '200 ' + Math.min(11, W/36) + 'px Helvetica Neue, Arial';
+      ctx.textAlign = 'right';
+      ctx.fillText(entry.track || '', rx, y);
+    });
+  }
+  ctx.fillStyle = MID; ctx.textBaseline = 'alphabetic';
+  ctx.font = '200 14px Helvetica Neue, Arial';
+  ctx.textAlign = 'center';
+  ctx.fillText('TAP HERE OR ESC TO GO BACK', W/2, H * 0.96);
 }
 
 function renderGame() {
@@ -1344,14 +1463,17 @@ function handleClickAt(mx, my) {
       const b = buttons[i];
       if (mx >= b.x && mx <= b.x + b.w && my >= b.y && my <= b.y + b.h) {
         playMenuSelect();
-        if (i === 0) { gameState = 'trackSelect'; selectHover = saveData.selectedTrack; }
-        else if (i === 1) { gameState = 'carSelect'; selectHover = saveData.selectedCar; }
-        else if (i === 2) { showHowToPlay(); }
+        if (i === 0) { ensurePlayerName(); gameState = 'trackSelect'; selectHover = saveData.selectedTrack; }
+        else if (i === 1) { refreshLeaderboard(); gameState = 'leaderboard'; }
+        else if (i === 2) { gameState = 'carSelect'; selectHover = saveData.selectedCar; }
+        else if (i === 3) { showHowToPlay(); }
         return;
       }
     }
     return;
   }
+
+  if (gameState === 'leaderboard') { if (my > H * 0.9) { playMenuSelect(); gameState = 'menu'; return; } return; }
 
   if (gameState === 'trackSelect') {
     // Back zone (bottom of screen)
@@ -1479,14 +1601,16 @@ document.addEventListener('keydown', e => {
     else if (gameState === 'paused') gameState = 'playing';
     else if (gameState === 'trackSelect') gameState = 'menu';
     else if (gameState === 'carSelect') gameState = 'trackSelect';
+    else if (gameState === 'leaderboard') gameState = 'menu';
     else if (gameState === 'results') gameState = 'menu';
   }
   if (e.code === 'Enter') {
     if (gameState === 'menu' && menuHover >= 0) {
       playMenuSelect();
-      if (menuHover === 0) { gameState = 'trackSelect'; selectHover = saveData.selectedTrack; }
-      else if (menuHover === 1) { gameState = 'carSelect'; selectHover = saveData.selectedCar; }
-      else if (menuHover === 2) showHowToPlay();
+      if (menuHover === 0) { ensurePlayerName(); gameState = 'trackSelect'; selectHover = saveData.selectedTrack; }
+      else if (menuHover === 1) { refreshLeaderboard(); gameState = 'leaderboard'; }
+      else if (menuHover === 2) { gameState = 'carSelect'; selectHover = saveData.selectedCar; }
+      else if (menuHover === 3) showHowToPlay();
     }
     else if (gameState === 'trackSelect' && saveData.unlockedTracks[selectHover]) {
       playMenuSelect(); saveData.selectedTrack = selectHover; saveSave();
@@ -1515,7 +1639,7 @@ document.addEventListener('keydown', e => {
   }
   if (gameState === 'menu' || gameState === 'paused' || gameState === 'results') {
     if (e.code === 'ArrowUp') { menuHover = Math.max(0, menuHover-1); playMenuSelect(); }
-    if (e.code === 'ArrowDown') { menuHover = Math.min(2, menuHover+1); playMenuSelect(); }
+    if (e.code === 'ArrowDown') { menuHover = Math.min(3, menuHover+1); playMenuSelect(); }
   }
   if (gameState === 'trackSelect') {
     if (e.code === 'ArrowRight') { selectHover = Math.min(tracks.length-1, selectHover+1); }
@@ -1561,6 +1685,7 @@ function gameLoop(time) {
 // --- INIT ---
 loadSave();
 createTracks();
+initFirebase();
 menuHover = 0;
 requestAnimationFrame(gameLoop);
 
