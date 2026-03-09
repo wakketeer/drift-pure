@@ -663,6 +663,7 @@ function ptSegDist(px, py, x1, y1, x2, y2) {
 let car = null, currentTrack = null;
 let raceTime = 0, lapCount = 0, currentCheckpoint = 0;
 let driftScore = 0, driftCombo = 0, driftComboTimer = 0, driftMultiplier = 1, totalDriftScore = 0;
+let sparks = [], damageHits = 0, hitWallCooldown = 0;
 let lapTimes = [], countdown = 0, raceFinished = false, bestLapTime = Infinity;
 let camera = { x: 0, y: 0, zoom: 1, targetZoom: 1 };
 let menuHover = 0, selectHover = 0;
@@ -675,6 +676,7 @@ function startRace(trackIdx, carIdx) {
   camera.x = car.x; camera.y = car.y; camera.zoom = 1; camera.targetZoom = 1;
   raceTime = 0; lapCount = 0; currentCheckpoint = 1;
   driftScore = 0; driftCombo = 0; driftComboTimer = 0; driftMultiplier = 1; totalDriftScore = 0;
+  sparks = []; damageHits = 0; hitWallCooldown = 0;
   lapTimes = []; countdown = 3.5; raceFinished = false; bestLapTime = Infinity;
   touchLeft = null; touchRight = null;
   gameState = 'playing';
@@ -694,6 +696,51 @@ function updateRace(dt) {
   // Wall hit kills the drift combo / multiplier
   if (car.hitWall && (driftCombo > 0 || driftMultiplier > 1)) {
     driftCombo = 0; driftMultiplier = 1; driftComboTimer = 0;
+  }
+
+  // Wall hit visual damage: sparks on impact + progressive smoke
+  if (car.hitWall && hitWallCooldown <= 0) {
+    damageHits = Math.min(5, damageHits + 1);
+    hitWallCooldown = 0.35;
+    // Burst of sparks at impact point
+    for (let i = 0; i < 16; i++) {
+      const a = Math.random() * TAU;
+      const spd = 90 + Math.random() * 160;
+      sparks.push({
+        x: car.x, y: car.y,
+        vx: Math.cos(a) * spd + car.vx * 0.25,
+        vy: Math.sin(a) * spd + car.vy * 0.25,
+        life: 0.2 + Math.random() * 0.3,
+        maxLife: 0.5,
+        r: Math.floor(210 + Math.random() * 45),
+        g: Math.floor(70 + Math.random() * 120),
+        b: Math.floor(Math.random() * 20)
+      });
+    }
+  }
+  if (hitWallCooldown > 0) hitWallCooldown -= dt;
+
+  // Damage smoke — grows denser with more hits
+  if (damageHits > 0 && frameCount % Math.max(1, 6 - damageHits) === 0) {
+    const fx = Math.cos(car.angle), fy = Math.sin(car.angle);
+    car.particles.push({
+      x: car.x + fx * car.length * 0.38 + (Math.random()-0.5)*6,
+      y: car.y + fy * car.length * 0.38 + (Math.random()-0.5)*6,
+      vx: fx * 18 + (Math.random()-0.5)*22,
+      vy: fy * 18 + (Math.random()-0.5)*22,
+      life: 1.1 + Math.random() * 0.6,
+      maxLife: 1.7,
+      isDamage: true
+    });
+  }
+
+  // Update sparks
+  for (let i = sparks.length - 1; i >= 0; i--) {
+    const s = sparks[i];
+    s.x += s.vx * dt; s.y += s.vy * dt;
+    s.vx *= 0.78; s.vy *= 0.78;
+    s.life -= dt;
+    if (s.life <= 0) sparks.splice(i, 1);
   }
 
   const lookAhead = 60;
@@ -1109,6 +1156,14 @@ function renderGame() {
   ctx.fillStyle = 'rgba(44,62,80,0.12)';
   for (const m of car.tireMarks) { ctx.beginPath(); ctx.arc(m.x, m.y, 2.5, 0, TAU); ctx.fill(); }
 
+  // Impact sparks
+  for (const s of sparks) {
+    const alpha = s.life / s.maxLife;
+    ctx.fillStyle = 'rgba(' + s.r + ',' + s.g + ',' + s.b + ',' + alpha + ')';
+    const sz = Math.max(0.3, alpha * 3.5);
+    ctx.beginPath(); ctx.arc(s.x, s.y, sz, 0, TAU); ctx.fill();
+  }
+
   // Start/finish line only — checkpoints are invisible (logic only)
   {
     const sf = currentTrack.checkpoints[0];
@@ -1147,10 +1202,16 @@ function renderGame() {
   ctx.strokeStyle = '#4d6475'; ctx.lineWidth = 3;
   for (const w of walls) { ctx.beginPath(); ctx.moveTo(w.x1, w.y1); ctx.lineTo(w.x2, w.y2); ctx.stroke(); }
 
-  // Particles
+  // Particles (tire smoke + engine damage smoke)
   for (const p of car.particles) {
-    ctx.fillStyle = `rgba(44,62,80,${p.life/p.maxLife*0.3})`;
-    ctx.beginPath(); ctx.arc(p.x, p.y, 2, 0, TAU); ctx.fill();
+    const a = p.life / p.maxLife;
+    if (p.isDamage) {
+      ctx.fillStyle = 'rgba(12,12,12,' + (a * 0.5) + ')';
+      ctx.beginPath(); ctx.arc(p.x, p.y, 3 + (1 - a) * 5, 0, TAU); ctx.fill();
+    } else {
+      ctx.fillStyle = 'rgba(44,62,80,' + (a * 0.3) + ')';
+      ctx.beginPath(); ctx.arc(p.x, p.y, 2.5, 0, TAU); ctx.fill();
+    }
   }
 
   // Car
