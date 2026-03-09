@@ -257,7 +257,7 @@ const FIREBASE_CONFIG = {
 };
 let fbDb = null;
 let playerName = localStorage.getItem('driftpure_name') || '';
-let leaderboardData = [];
+let leaderboardByTrack = {};
 let leaderboardLoaded = false;
 
 function initFirebase() {
@@ -270,10 +270,20 @@ function initFirebase() {
 function refreshLeaderboard() {
   if (!fbDb) return;
   leaderboardLoaded = false;
-  fbDb.ref('scores').orderByChild('score').limitToLast(10).once('value', snap => {
-    leaderboardData = [];
-    snap.forEach(child => leaderboardData.unshift(child.val()));
-    leaderboardLoaded = true;
+  leaderboardByTrack = {};
+  let pending = tracks.length;
+  tracks.forEach(track => {
+    fbDb.ref('leaderboard/' + track.name)
+      .orderByChild('score').limitToLast(5)
+      .once('value', snap => {
+        const entries = [];
+        snap.forEach(child => entries.unshift(child.val()));
+        leaderboardByTrack[track.name] = entries;
+        if (--pending === 0) leaderboardLoaded = true;
+      }).catch(() => {
+        leaderboardByTrack[track.name] = [];
+        if (--pending === 0) leaderboardLoaded = true;
+      });
   });
 }
 
@@ -286,23 +296,18 @@ function ensurePlayerName() {
   return playerName;
 }
 
-function sanitizeKey(str) {
-  // Firebase keys cannot contain . # $ / [ ]
-  return str.replace(/[.#$\/\[\]]/g, '_').slice(0, 20) || 'anon';
-}
-
 function submitScore(score, trackName, time) {
   if (!fbDb || score <= 0) return;
   const name = ensurePlayerName();
-  const key = sanitizeKey(name);
-  const ref = fbDb.ref('scores/' + key);
-  // Only write if this beats the player's existing best score
-  ref.once('value', snap => {
-    const existing = snap.val();
-    if (!existing || score > existing.score) {
-      ref.set({
+  const ref = fbDb.ref('leaderboard/' + trackName);
+  // Only submit if score qualifies for the top 5 on this track
+  ref.orderByChild('score').limitToLast(5).once('value', snap => {
+    const entries = [];
+    snap.forEach(child => entries.unshift(child.val()));
+    const qualifies = entries.length < 5 || score > entries[entries.length - 1].score;
+    if (qualifies) {
+      ref.push({
         name, score,
-        track: trackName,
         time: Math.round(time * 100) / 100,
         ts: Date.now()
       }).catch(() => {});
@@ -1056,63 +1061,90 @@ function renderCarSelect() {
 function renderLeaderboard() {
   ctx.fillStyle = BG;
   ctx.fillRect(0, 0, W, H);
+
+  // Title
   ctx.fillStyle = DARK;
-  ctx.font = 'bold ' + Math.min(32, W/12) + 'px Helvetica Neue, Arial';
+  ctx.font = 'bold ' + Math.min(28, W/14) + 'px Helvetica Neue, Arial';
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillText('LEADERBOARD', W/2, H * 0.08);
+  ctx.fillText('LEADERBOARD', W/2, H * 0.055);
   ctx.fillStyle = ACCENT;
-  ctx.fillRect(W/2 - 40, H * 0.13, 80, 2);
+  ctx.fillRect(W/2 - 35, H * 0.088, 70, 2);
 
   if (!leaderboardLoaded) {
     ctx.fillStyle = MID;
     ctx.font = '200 ' + Math.min(14, W/25) + 'px Helvetica Neue, Arial';
     ctx.fillText('Loading...', W/2, H * 0.5);
-  } else if (leaderboardData.length === 0) {
-    ctx.fillStyle = MID;
-    ctx.font = '200 ' + Math.min(14, W/25) + 'px Helvetica Neue, Arial';
-    ctx.fillText('No scores yet — be the first!', W/2, H * 0.5);
   } else {
-    const rowH = Math.min(52, (H * 0.72) / 10);
-    const startY = H * 0.18;
-    const lx = W * 0.08, rx = W * 0.92;
-    ctx.fillStyle = MID;
-    ctx.font = '200 ' + Math.min(10, W/40) + 'px Helvetica Neue, Arial';
-    ctx.textAlign = 'left';  ctx.fillText('PLAYER', lx + W*0.08, startY);
-    ctx.textAlign = 'right'; ctx.fillText('SCORE', rx - W*0.12, startY);
-    ctx.textAlign = 'right'; ctx.fillText('TRACK', rx, startY);
-    leaderboardData.forEach((entry, i) => {
-      const y = startY + rowH * 0.9 + i * rowH;
-      const isFirst = i === 0;
-      const isMe = entry.name === playerName;
-      if (isMe) {
-        ctx.fillStyle = 'rgba(52,152,219,0.07)';
-        ctx.fillRect(lx, y - rowH * 0.55, rx - lx, rowH * 0.85);
-      } else if (isFirst) {
-        ctx.fillStyle = 'rgba(231,76,60,0.06)';
-        ctx.fillRect(lx, y - rowH * 0.55, rx - lx, rowH * 0.85);
+    const headerH = Math.min(22, H * 0.028);
+    const rowH    = Math.min(19, H * 0.024);
+    const gap     = Math.min(10, H * 0.013);
+    const lx      = W * 0.07;
+    const rw      = W * 0.86;
+    let   y       = H * 0.10;
+
+    tracks.forEach(track => {
+      const entries = leaderboardByTrack[track.name] || [];
+
+      // ── Track header ──
+      ctx.fillStyle = track.accent;
+      ctx.font = 'bold ' + Math.min(11, W/52) + 'px Helvetica Neue, Arial';
+      ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+      ctx.fillText(track.name, lx, y + headerH / 2);
+      // Divider line
+      ctx.strokeStyle = track.accent;
+      ctx.globalAlpha = 0.25; ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(lx + W * 0.13, y + headerH / 2);
+      ctx.lineTo(lx + rw, y + headerH / 2);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+      y += headerH;
+
+      if (entries.length === 0) {
+        ctx.fillStyle = MID;
+        ctx.font = '200 ' + Math.min(10, W/52) + 'px Helvetica Neue, Arial';
+        ctx.textAlign = 'left';
+        ctx.fillText('No scores yet — be first!', lx + W * 0.05, y + rowH / 2);
+        y += rowH;
+      } else {
+        entries.forEach((entry, i) => {
+          const isMe    = entry.name === playerName;
+          const isFirst = i === 0;
+
+          // Row highlight
+          if (isMe) {
+            ctx.fillStyle = 'rgba(52,152,219,0.09)';
+            ctx.fillRect(lx, y, rw, rowH);
+          }
+
+          // Rank
+          ctx.fillStyle = isFirst ? track.accent : MID;
+          ctx.font = 'bold ' + Math.min(10, W/52) + 'px Helvetica Neue, Arial';
+          ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+          ctx.fillText('#' + (i + 1), lx, y + rowH / 2);
+
+          // Name
+          ctx.fillStyle = isMe ? ACCENT2 : (isFirst ? DARK : DARK);
+          ctx.font = (isFirst ? 'bold' : '300') + ' ' + Math.min(11, W/50) + 'px Helvetica Neue, Arial';
+          ctx.fillText((entry.name || 'Anon').slice(0, 16), lx + W * 0.055, y + rowH / 2);
+
+          // Score
+          ctx.fillStyle = isFirst ? track.accent : DARK;
+          ctx.font = 'bold ' + Math.min(11, W/50) + 'px Helvetica Neue, Arial';
+          ctx.textAlign = 'right';
+          ctx.fillText((entry.score || 0).toLocaleString(), lx + rw, y + rowH / 2);
+
+          y += rowH;
+        });
       }
-      ctx.fillStyle = isFirst ? ACCENT : MID;
-      ctx.font = 'bold ' + Math.min(13, W/30) + 'px Helvetica Neue, Arial';
-      ctx.textAlign = 'left';
-      ctx.fillText('#' + (i + 1), lx, y);
-      ctx.fillStyle = isMe ? ACCENT2 : DARK;
-      ctx.font = (isFirst ? 'bold' : '300') + ' ' + Math.min(14, W/28) + 'px Helvetica Neue, Arial';
-      ctx.textAlign = 'left';
-      ctx.fillText(entry.name || 'Anonymous', lx + W*0.07, y);
-      ctx.fillStyle = isFirst ? ACCENT : DARK;
-      ctx.font = 'bold ' + Math.min(14, W/28) + 'px Helvetica Neue, Arial';
-      ctx.textAlign = 'right';
-      ctx.fillText((entry.score || 0).toLocaleString(), rx - W*0.12, y);
-      ctx.fillStyle = MID;
-      ctx.font = '200 ' + Math.min(11, W/36) + 'px Helvetica Neue, Arial';
-      ctx.textAlign = 'right';
-      ctx.fillText(entry.track || '', rx, y);
+      y += gap;
     });
   }
+
   ctx.fillStyle = MID; ctx.textBaseline = 'alphabetic';
-  ctx.font = '200 14px Helvetica Neue, Arial';
+  ctx.font = '200 13px Helvetica Neue, Arial';
   ctx.textAlign = 'center';
-  ctx.fillText('TAP HERE OR ESC TO GO BACK', W/2, H * 0.96);
+  ctx.fillText('TAP HERE OR ESC TO GO BACK', W/2, H * 0.97);
 }
 
 function renderGame() {
