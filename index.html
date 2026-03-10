@@ -1527,68 +1527,99 @@ function darkenHex(hex, factor) {
 }
 
 function drawCar(ctx, car) {
-  const lift = 5; // world-units of visual elevation (pseudo-3D height)
+  const lift = 5;
+  const cl = car.length, cw = car.width;
+  const fx = car.wheelBase * 0.40;   // front axle X
+  const rx = -car.wheelBase * 0.40;  // rear axle X
+  const sy = cw / 2 + 2.5;           // tyre centre Y (2.5px beyond body edge)
+  const tl = 10, tw = 5;             // tyre length (along car) and width (across)
 
-  // 1. Ground shadow — world-aligned offset, independent of car spin
+  // 1. Ground shadow
   ctx.save();
-  ctx.translate(car.x + 5, car.y + 8);
+  ctx.translate(car.x + 4, car.y + 7);
   ctx.rotate(car.angle);
-  ctx.globalAlpha = 0.2;
+  ctx.globalAlpha = 0.18;
   ctx.fillStyle = '#000';
-  ctx.scale(1.12, 1.18);
-  roundRect(ctx, -car.length/2, -car.width/2, car.length, car.width, 5); ctx.fill();
+  ctx.scale(1.14, 1.2);
+  roundRect(ctx, -cl/2, -cw/2, cl, cw, 5); ctx.fill();
   ctx.globalAlpha = 1;
   ctx.restore();
 
-  // 2. Side face — at ground level, darker colour
-  //    The top surface (step 3) will cover most of it, leaving only a
-  //    ~lift-px strip at the bottom — that strip is the visible side wall.
+  // 2. Tyres — drawn at GROUND LEVEL before the body so the elevated
+  //    body overlaps their inner edge, making them appear to stick out sideways
   ctx.save();
   ctx.translate(car.x, car.y);
   ctx.rotate(car.angle);
-  ctx.fillStyle = darkenHex(car.def.color, 0.45);
-  roundRect(ctx, -car.length/2, -car.width/2, car.length, car.width, 4); ctx.fill();
+
+  function drawTyre(tx, ty, steer) {
+    ctx.save();
+    ctx.translate(tx, ty);
+    if (steer) ctx.rotate(steer);
+    ctx.fillStyle = '#12121e';
+    ctx.fillRect(-tl/2, -tw/2, tl, tw);
+    // Rim highlight strip
+    ctx.fillStyle = 'rgba(100,100,130,0.45)';
+    ctx.fillRect(-tl/2 + 1.5, -tw/2 + 1, tl - 3, 1.5);
+    ctx.restore();
+  }
+
+  drawTyre(fx, -sy, car.steerAngle);  // front-left
+  drawTyre(fx,  sy, car.steerAngle);  // front-right
+  drawTyre(rx, -sy, 0);               // rear-left
+  drawTyre(rx,  sy, 0);               // rear-right
   ctx.restore();
 
-  // 3. Top surface + details — elevated by lift (shifted up in screen/world Y)
+  // 3. Side face — 3D depth strip at ground level
+  ctx.save();
+  ctx.translate(car.x, car.y);
+  ctx.rotate(car.angle);
+  ctx.fillStyle = darkenHex(car.def.color, 0.42);
+  roundRect(ctx, -cl/2, -cw/2, cl, cw, 4); ctx.fill();
+  ctx.restore();
+
+  // 4. Elevated car body + details
   ctx.save();
   ctx.translate(car.x, car.y - lift);
   ctx.rotate(car.angle);
 
+  // Base body
   ctx.fillStyle = car.def.color;
-  roundRect(ctx, -car.length/2, -car.width/2, car.length, car.width, 4); ctx.fill();
+  roundRect(ctx, -cl/2, -cw/2, cl, cw, 4); ctx.fill();
 
-  // Windshield tint
-  ctx.fillStyle = 'rgba(200,230,255,0.5)';
-  roundRect(ctx, car.length*0.05, -car.width/2+2, car.length*0.2, car.width-4, 2); ctx.fill();
+  // Front bonnet — slightly lighter
+  ctx.fillStyle = 'rgba(255,255,255,0.07)';
+  roundRect(ctx, cl*0.15, -cw/2+1, cl*0.33, cw-2, 2); ctx.fill();
 
-  // Roof highlight stripe
+  // Windshield
+  ctx.fillStyle = 'rgba(185,220,255,0.58)';
+  roundRect(ctx, cl*0.04, -cw/2+2, cl*0.19, cw-4, 2); ctx.fill();
+
+  // Cabin roof (darker centre strip)
+  ctx.fillStyle = darkenHex(car.def.color, 0.68);
+  roundRect(ctx, -cl*0.13, -cw/2+2.5, cl*0.27, cw-5, 2); ctx.fill();
+
+  // Roof highlight
   ctx.fillStyle = 'rgba(255,255,255,0.13)';
-  roundRect(ctx, -car.length*0.2, -car.width/2+3, car.length*0.4, car.width-6, 2); ctx.fill();
+  roundRect(ctx, -cl*0.07, -cw/2+3.5, cl*0.2, cw-7, 1); ctx.fill();
 
-  // Wheels (elevated with the top surface)
-  ctx.fillStyle = DARK;
-  const ww = 8, wh = 4;
-  ctx.save();
-  ctx.translate(car.wheelBase*0.4, -car.width/2-1);
-  ctx.rotate(car.steerAngle);
-  ctx.fillRect(-ww/2, -wh/2, ww, wh);
-  ctx.restore();
-  ctx.save();
-  ctx.translate(car.wheelBase*0.4, car.width/2+1);
-  ctx.rotate(car.steerAngle);
-  ctx.fillRect(-ww/2, -wh/2, ww, wh);
-  ctx.restore();
-  ctx.fillRect(-car.wheelBase*0.4-ww/2, -car.width/2-1-wh/2, ww, wh);
-  ctx.fillRect(-car.wheelBase*0.4-ww/2, car.width/2+1-wh/2, ww, wh);
+  // Rear window
+  ctx.fillStyle = 'rgba(175,210,255,0.38)';
+  roundRect(ctx, -cl*0.36, -cw/2+2.5, cl*0.14, cw-5, 1); ctx.fill();
 
-  // Drift aura ring (on the elevated top)
+  // Headlights
+  ctx.fillStyle = 'rgba(255,248,200,0.85)';
+  ctx.fillRect(cl/2-3, -cw/2+1.5, 3, 3);
+  ctx.fillRect(cl/2-3,  cw/2-4.5, 3, 3);
+
+  // Drift ring on roof
   if (car.drifting) {
-    ctx.strokeStyle = currentTrack.accent; ctx.lineWidth = 2;
+    ctx.strokeStyle = currentTrack.accent;
+    ctx.lineWidth = 2;
     ctx.globalAlpha = 0.5 + Math.sin(frameCount * 0.3) * 0.3;
-    ctx.beginPath(); ctx.arc(0, 0, car.length * 0.7, 0, TAU); ctx.stroke();
+    ctx.beginPath(); ctx.arc(0, 0, cl * 0.7, 0, TAU); ctx.stroke();
     ctx.globalAlpha = 1;
   }
+
   ctx.restore();
 }
 
