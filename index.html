@@ -287,8 +287,10 @@ function refreshLeaderboard() {
     return fbDb.ref('leaderboard/' + trackKey)
       .once('value')
       .then(snap => {
-        const entries = [];
-        snap.forEach(child => entries.push(child.val()));
+        // Use snap.val() + Object.values() — avoids snap.forEach ordering issues
+        const raw = snap.val();
+        console.log('[LB DEBUG] ' + trackKey + ' raw:', JSON.stringify(raw));
+        const entries = raw ? Object.values(raw) : [];
         entries.sort((a, b) => b.score - a.score);
         leaderboardByTrack[track.name] = entries.slice(0, 5);
         console.log('[LB] ' + trackKey + ': ' + entries.length + ' entries — ' +
