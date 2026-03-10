@@ -282,16 +282,17 @@ function refreshLeaderboard() {
 
   const promises = tracks.map(track => {
     const trackKey = toFirebaseKey(track.name);
-    // once() with no callback returns a Promise in Firebase compat SDK
+    // Fetch all entries, sort and slice client-side to avoid Firebase
+    // tied-score bugs with orderByChild().limitToLast()
     return fbDb.ref('leaderboard/' + trackKey)
-      .orderByChild('score').limitToLast(5)
       .once('value')
       .then(snap => {
         const entries = [];
-        snap.forEach(child => entries.unshift(child.val()));
-        leaderboardByTrack[track.name] = entries;
-        console.log('[LB] ' + trackKey + ': ' + entries.length + ' entries',
-          entries.map(e => e.name + '=' + e.score).join(', '));
+        snap.forEach(child => entries.push(child.val()));
+        entries.sort((a, b) => b.score - a.score);
+        leaderboardByTrack[track.name] = entries.slice(0, 5);
+        console.log('[LB] ' + trackKey + ': ' + entries.length + ' entries — ' +
+          entries.slice(0,5).map(e => e.name + '=' + e.score).join(', '));
       })
       .catch(err => {
         console.warn('[LB] Error reading ' + trackKey + ':', err);
@@ -301,7 +302,6 @@ function refreshLeaderboard() {
 
   Promise.all(promises).then(() => {
     leaderboardLoaded = true;
-    console.log('[LB] All tracks loaded.');
   });
 }
 
