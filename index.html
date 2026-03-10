@@ -267,20 +267,30 @@ function initFirebase() {
   } catch(e) { console.log('Firebase init failed:', e); }
 }
 
+// Sanitise a string for use as a Firebase key (no Unicode, no special chars)
+function toFirebaseKey(str) {
+  return (str || '')
+    .normalize('NFD').replace(/[̀-ͯ]/g, '') // strip diacritics (Ū→U, Ō→O)
+    .replace(/[^a-zA-Z0-9_-]/g, '_')                  // replace remaining specials
+    .slice(0, 32) || 'unknown';
+}
+
 function refreshLeaderboard() {
   if (!fbDb) return;
   leaderboardLoaded = false;
   leaderboardByTrack = {};
   let pending = tracks.length;
   tracks.forEach(track => {
-    fbDb.ref('leaderboard/' + track.name)
+    const trackKey = toFirebaseKey(track.name);
+    fbDb.ref('leaderboard/' + trackKey)
       .orderByChild('score').limitToLast(5)
       .once('value', snap => {
         const entries = [];
         snap.forEach(child => entries.unshift(child.val()));
         leaderboardByTrack[track.name] = entries;
         if (--pending === 0) leaderboardLoaded = true;
-      }).catch(() => {
+      }, err => {
+        console.warn('Leaderboard read error:', err);
         leaderboardByTrack[track.name] = [];
         if (--pending === 0) leaderboardLoaded = true;
       });
@@ -298,21 +308,24 @@ function ensurePlayerName() {
 
 function submitScore(score, trackName, time) {
   if (!fbDb || score <= 0) return;
-  const name = ensurePlayerName();
-  const ref = fbDb.ref('leaderboard/' + trackName);
-  // Only submit if score qualifies for the top 5 on this track
-  ref.orderByChild('score').limitToLast(5).once('value', snap => {
-    const entries = [];
-    snap.forEach(child => entries.unshift(child.val()));
-    const qualifies = entries.length < 5 || score > entries[entries.length - 1].score;
-    if (qualifies) {
-      ref.push({
-        name, score,
-        time: Math.round(time * 100) / 100,
-        ts: Date.now()
-      }).catch(() => {});
-    }
-  }).catch(() => {});
+  const name   = ensurePlayerName();
+  const tKey   = toFirebaseKey(trackName);          // e.g. SHUKAI, TOGE
+  const pKey   = toFirebaseKey(name);               // e.g. Zachary
+  const ref    = fbDb.ref('leaderboard/' + tKey + '/' + pKey);
+  // set() writes one entry per player per track.
+  // The Firebase rule only allows this if no entry exists yet,
+  // OR the new score is strictly higher than the existing one.
+  ref.set({
+    name,
+    score,
+    time: Math.round(time * 100) / 100,
+    ts: Date.now()
+  }).then(() => {
+    console.log('Score saved:', name, score, trackName);
+  }).catch(err => {
+    // Most likely reason: score didn't beat existing — that's expected.
+    console.log('Score not saved (not a new best or rule blocked):', err.message);
+  });
 }
 
 // --- CAR DEFINITIONS ---
