@@ -468,14 +468,15 @@ function createTracks() {
     decorations: generateDecorations(0, 0, 1100, 1000, 30)
   };
 
-  // Track 4: TŌGE - Mountain touge with switchbacks
+  // Track 4: TŌGE - Mountain pass — wide hairpins, no self-intersecting walls
   const t4 = buildTrackFromPath([
-    {x: 0, y: -900}, {x: 350, y: -850}, {x: 650, y: -650}, {x: 500, y: -400},
-    {x: 250, y: -300}, {x: 500, y: -100}, {x: 750, y: 50}, {x: 600, y: 300},
-    {x: 300, y: 350}, {x: 50, y: 500}, {x: -250, y: 650}, {x: -550, y: 500},
-    {x: -700, y: 250}, {x: -550, y: 0}, {x: -350, y: -150}, {x: -600, y: -350},
-    {x: -700, y: -600}, {x: -500, y: -800}, {x: -250, y: -900}
-  ], 175, 14);
+    {x: 0, y: -900},    {x: 380, y: -860},  {x: 720, y: -660},
+    {x: 850, y: -320},  {x: 720, y: 20},    {x: 450, y: 200},
+    {x: 150, y: 360},   {x: -120, y: 460},  {x: -420, y: 600},
+    {x: -700, y: 540},  {x: -860, y: 280},  {x: -800, y: -30},
+    {x: -600, y: -300}, {x: -700, y: -580}, {x: -490, y: -820},
+    {x: -220, y: -900}
+  ], 168, 18);
   tracks[3] = {
     name: 'TŌGE', subtitle: 'Mountain Pass', accent: '#E67E22', laps: 2, unlock: 0, bgColor: '#1a5a8a', biome: 'water',
     walls: t4.walls, checkpoints: t4.checkpoints,
