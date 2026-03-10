@@ -1220,12 +1220,16 @@ function renderBiomeDecorations(ctx, track) {
       case 'snow': {
         if (d.type === 'circle') {
           // Snow-covered pine tree
-          const r = d.size * 1.2 + 2;
+          const r = d.size * 1.1 + 2;
+          // Outer canopy
           ctx.fillStyle = `rgba(28,58,36,${a})`;
           ctx.beginPath(); ctx.arc(d.x, d.y, r, 0, TAU); ctx.fill();
-          // Snow cap
-          ctx.fillStyle = `rgba(220,234,245,${a * 0.92})`;
-          ctx.beginPath(); ctx.arc(d.x - r*0.08, d.y - r*0.25, r*0.68, 0, TAU); ctx.fill();
+          // Darker centre — gives the canopy depth
+          ctx.fillStyle = `rgba(12,30,18,${a * 0.55})`;
+          ctx.beginPath(); ctx.arc(d.x, d.y, r * 0.45, 0, TAU); ctx.fill();
+          // Snow cap — small, sitting at the very top edge only
+          ctx.fillStyle = `rgba(228,240,250,${a * 0.92})`;
+          ctx.beginPath(); ctx.arc(d.x, d.y - r * 0.52, r * 0.38, 0, TAU); ctx.fill();
         } else {
           // Snow-covered cabin
           const w2 = d.size*1.8, h2 = d.size*0.95;
