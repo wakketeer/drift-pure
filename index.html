@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>DRIFT // PURE</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='4' fill='%23E74C3C'/><rect x='4' y='11' width='24' height='11' rx='3' fill='white'/><circle cx='9' cy='24' r='3.5' fill='%232C3E50'/><circle cx='23' cy='24' r='3.5' fill='%232C3E50'/></svg>">
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body {
@@ -792,9 +793,9 @@ function updateRace(dt) {
 
   // Drift scoring
   if (car.drifting) {
-    driftCombo += car.driftAngle * Math.abs(car.speed) * 0.03 * car.def.driftBonus * dt;
+    driftCombo += car.driftAngle * Math.abs(car.speed) * 0.5 * car.def.driftBonus * dt;
     driftComboTimer = 1.2;
-    driftMultiplier = Math.min(5, 1 + Math.floor(driftCombo / 50));
+    driftMultiplier = Math.min(5, 1 + Math.floor(driftCombo / 800));
     if (frameCount % 10 === 0) playDriftSound();
   }
   if (driftComboTimer > 0) {
@@ -967,6 +968,44 @@ function renderMenu() {
   ctx.fillText('ARROW KEYS / WASD / TOUCH', W/2, H * 0.95);
 }
 
+function drawTrackMinimap(track, bx, by, bw, bh) {
+  const walls = track.walls;
+  if (!walls || walls.length === 0) return;
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  for (const w of walls) {
+    minX = Math.min(minX, w.x1, w.x2);
+    maxX = Math.max(maxX, w.x1, w.x2);
+    minY = Math.min(minY, w.y1, w.y2);
+    maxY = Math.max(maxY, w.y1, w.y2);
+  }
+  const tw = maxX - minX || 1, th = maxY - minY || 1;
+  const pad = 8;
+  const sc = Math.min((bw - pad*2) / tw, (bh - pad*2) / th) * 0.88;
+  const ox = bx + bw/2 - (minX + tw/2) * sc;
+  const oy = by + bh/2 - (minY + th/2) * sc;
+  ctx.save();
+  ctx.beginPath(); roundRect(ctx, bx+2, by+2, bw-4, bh-4, 6); ctx.clip();
+  // Build outer and inner polylines (outer = odd indices, inner = even)
+  const outerPts = [], innerPts = [];
+  for (let i = 0; i < walls.length; i += 2) innerPts.push({x: ox+walls[i].x1*sc, y: oy+walls[i].y1*sc});
+  for (let i = 1; i < walls.length; i += 2) outerPts.push({x: ox+walls[i].x1*sc, y: oy+walls[i].y1*sc});
+  // Fill track band
+  ctx.beginPath();
+  outerPts.forEach((p,i) => i===0 ? ctx.moveTo(p.x,p.y) : ctx.lineTo(p.x,p.y));
+  ctx.closePath(); ctx.fillStyle='rgba(255,255,255,0.10)'; ctx.fill();
+  // Outer wall
+  ctx.strokeStyle = track.accent; ctx.lineWidth = 1.4; ctx.globalAlpha = 0.7;
+  ctx.beginPath();
+  outerPts.forEach((p,i) => i===0 ? ctx.moveTo(p.x,p.y) : ctx.lineTo(p.x,p.y));
+  ctx.closePath(); ctx.stroke();
+  // Inner wall
+  ctx.lineWidth = 0.9; ctx.globalAlpha = 0.4;
+  ctx.beginPath();
+  innerPts.forEach((p,i) => i===0 ? ctx.moveTo(p.x,p.y) : ctx.lineTo(p.x,p.y));
+  ctx.closePath(); ctx.stroke();
+  ctx.globalAlpha = 1; ctx.restore();
+}
+
 function renderTrackSelect() {
   ctx.fillStyle = BG;
   ctx.fillRect(0, 0, W, H);
@@ -990,21 +1029,26 @@ function renderTrackSelect() {
     ctx.stroke();
     ctx.globalAlpha = 1;
 
+    // Mini-map in top 45% of card
+    if (ul) {
+      drawTrackMinimap(t, btn.x + 4, btn.y + 4, btn.w - 8, btn.h * 0.44);
+    }
+    // Text labels in lower portion
     ctx.fillStyle = sel ? WHITE : (ul ? DARK : MID);
-    ctx.font = `bold ${Math.min(15, btn.w/8)}px Helvetica Neue, Arial`;
+    ctx.font = `bold ${Math.min(13, btn.w/9)}px Helvetica Neue, Arial`;
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText(t.name, btn.x + btn.w/2, btn.y + btn.h * 0.35);
-    ctx.font = `200 ${Math.min(11, btn.w/12)}px Helvetica Neue, Arial`;
-    ctx.fillText(ul ? t.subtitle : `UNLOCK: ${t.unlock.toLocaleString()} PTS`, btn.x + btn.w/2, btn.y + btn.h * 0.55);
+    ctx.fillText(t.name, btn.x + btn.w/2, btn.y + btn.h * 0.55);
+    ctx.font = `200 ${Math.min(10, btn.w/14)}px Helvetica Neue, Arial`;
+    ctx.fillText(ul ? t.subtitle : `UNLOCK: ${t.unlock.toLocaleString()} PTS`, btn.x + btn.w/2, btn.y + btn.h * 0.68);
     if (ul && saveData.bestScores[i] > 0) {
       ctx.fillStyle = sel ? 'rgba(255,255,255,0.7)' : MID;
-      ctx.font = `200 ${Math.min(10, btn.w/14)}px Helvetica Neue, Arial`;
-      ctx.fillText(`BEST: ${saveData.bestScores[i].toLocaleString()}`, btn.x + btn.w/2, btn.y + btn.h * 0.72);
+      ctx.font = `200 ${Math.min(9, btn.w/16)}px Helvetica Neue, Arial`;
+      ctx.fillText(`BEST: ${saveData.bestScores[i].toLocaleString()}`, btn.x + btn.w/2, btn.y + btn.h * 0.80);
     }
     if (ul) {
       ctx.fillStyle = sel ? 'rgba(255,255,255,0.5)' : MID;
-      ctx.font = `200 ${Math.min(10, btn.w/14)}px Helvetica Neue, Arial`;
-      ctx.fillText(`${t.laps} LAPS`, btn.x + btn.w/2, btn.y + btn.h * 0.88);
+      ctx.font = `200 ${Math.min(9, btn.w/16)}px Helvetica Neue, Arial`;
+      ctx.fillText(`${t.laps} LAPS`, btn.x + btn.w/2, btn.y + btn.h * 0.91);
     }
   });
 
@@ -1632,13 +1676,27 @@ function drawCarBody(ctx, x, y, angle, color, scale, alpha) {
   ctx.save();
   ctx.translate(x, y); ctx.rotate(angle - PI/2); ctx.scale(scale, scale);
   ctx.globalAlpha = alpha;
+  const cl = 32, cw = 16, lift = 3;
+  const tl = 10, tw = 5, sy = cw/2 + 2.5;
+  // Tyres
+  ctx.fillStyle = '#12121e';
+  [[cl*0.4,-sy],[cl*0.4,sy],[-cl*0.4,-sy],[-cl*0.4,sy]].forEach(([tx,ty]) => {
+    ctx.fillRect(tx-tl/2, ty-tw/2, tl, tw);
+  });
+  // Side face (3D depth)
+  ctx.fillStyle = darkenHex(color, 0.42);
+  roundRect(ctx, -cl/2, -cw/2, cl, cw, 4); ctx.fill();
+  // Elevated top
+  ctx.save(); ctx.translate(0, -lift);
   ctx.fillStyle = color;
-  roundRect(ctx, -16, -8, 32, 16, 4); ctx.fill();
-  ctx.fillStyle = 'rgba(255,255,255,0.4)';
-  roundRect(ctx, 1, -6, 7, 12, 2); ctx.fill();
-  ctx.fillStyle = DARK;
-  ctx.fillRect(-12,-10,6,3); ctx.fillRect(-12,7,6,3);
-  ctx.fillRect(8,-10,6,3); ctx.fillRect(8,7,6,3);
+  roundRect(ctx, -cl/2, -cw/2, cl, cw, 4); ctx.fill();
+  ctx.fillStyle = 'rgba(185,220,255,0.55)';
+  roundRect(ctx, cl*0.04, -cw/2+2, cl*0.19, cw-4, 2); ctx.fill();
+  ctx.fillStyle = darkenHex(color, 0.68);
+  roundRect(ctx, -cl*0.13, -cw/2+2.5, cl*0.27, cw-5, 2); ctx.fill();
+  ctx.fillStyle = 'rgba(175,210,255,0.38)';
+  roundRect(ctx, -cl*0.36, -cw/2+2.5, cl*0.14, cw-5, 1); ctx.fill();
+  ctx.restore();
   ctx.globalAlpha = 1;
   ctx.restore();
 }
@@ -1677,14 +1735,20 @@ function renderHUD() {
   ctx.fillText('DRIFT SCORE', 20, 55);
 
   if (driftCombo > 0 && driftComboTimer > 0) {
-    ctx.fillStyle = currentTrack.accent;
-    ctx.font = `bold ${Math.min(36, W/12)}px Helvetica Neue, Arial`;
+    const comboColors = ['#ffffff', '#FFE000', '#FF8C00', '#FF3300', '#FF0066'];
+    const comboCol = comboColors[Math.min(driftMultiplier - 1, 4)];
+    const sizeBoost = Math.min(1.45, 1 + driftCombo / 2500);
+    const fade = Math.min(1, driftComboTimer / 0.35);
+    ctx.globalAlpha = fade;
+    ctx.fillStyle = comboCol;
+    ctx.font = `bold ${Math.min(38 * sizeBoost, W/9)}px Helvetica Neue, Arial`;
     ctx.textAlign = 'center';
-    ctx.fillText(`+${Math.floor(driftCombo * driftMultiplier)}`, W/2, H * 0.3);
+    ctx.fillText(`+${Math.floor(driftCombo * driftMultiplier).toLocaleString()}`, W/2, H * 0.3);
     if (driftMultiplier > 1) {
-      ctx.font = `bold ${Math.min(20, W/20)}px Helvetica Neue, Arial`;
-      ctx.fillText(`x${driftMultiplier}`, W/2, H * 0.3 + 30);
+      ctx.font = `bold ${Math.min(21, W/19) * sizeBoost}px Helvetica Neue, Arial`;
+      ctx.fillText(`× ${driftMultiplier}`, W/2, H * 0.3 + 36);
     }
+    ctx.globalAlpha = 1;
   }
 
   // Pause button (bigger hit area)
