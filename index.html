@@ -1095,11 +1095,10 @@ function renderMenuBg() {
   ctx.beginPath(); ctx.arc(mb.x, mb.y, 60, 0, TAU); ctx.fill();
 
   // ── Headlight beams ──
-  // drawCarBody rotates by (angle - PI/2), so the car's visual front is at angle - PI/2
-  const carFront = mb.angle - PI/2;
+  // ── Headlight beams ── (angle = movement direction = visual front after rotation fix)
   for (const side of [-1, 1]) {
-    const hx = mb.x + Math.cos(carFront)*22 + Math.cos(carFront+PI/2)*side*8;
-    const hy = mb.y + Math.sin(carFront)*22 + Math.sin(carFront+PI/2)*side*8;
+    const hx = mb.x + Math.cos(mb.angle)*22 + Math.cos(mb.angle+PI/2)*side*8;
+    const hy = mb.y + Math.sin(mb.angle)*22 + Math.sin(mb.angle+PI/2)*side*8;
     const bLen = 120;
     const beamGrad = ctx.createRadialGradient(hx, hy, 0, hx, hy, bLen);
     beamGrad.addColorStop(0,   'rgba(255,252,210,0.28)');
@@ -1108,7 +1107,7 @@ function renderMenuBg() {
     ctx.save();
     ctx.beginPath();
     ctx.moveTo(hx, hy);
-    ctx.arc(hx, hy, bLen, carFront - 0.36, carFront + 0.36);
+    ctx.arc(hx, hy, bLen, mb.angle - 0.36, mb.angle + 0.36);
     ctx.closePath();
     ctx.fillStyle = beamGrad; ctx.fill();
     ctx.restore();
@@ -1873,7 +1872,7 @@ function drawCar(ctx, car) {
 
 function drawCarBody(ctx, x, y, angle, color, scale, alpha) {
   ctx.save();
-  ctx.translate(x, y); ctx.rotate(angle - PI/2); ctx.scale(scale, scale);
+  ctx.translate(x, y); ctx.rotate(angle); ctx.scale(scale, scale);
   ctx.globalAlpha = alpha;
   const cl = 32, cw = 16, lift = 3;
   const tl = 10, tw = 5, sy = cw/2 + 2.5;
