@@ -8,13 +8,15 @@ A minimalist, single-file browser drift racing game. No dependencies, no build s
 
 ## Overview
 
-DRIFT // PURE is a top-down canvas racing game built around one mechanic: drifting. Chain slides together to build multipliers, post your score to the live leaderboard, and master five hand-crafted tracks across five distinct environments.
+DRIFT // PURE is a top-down canvas racing game built around one mechanic: drifting. Chain slides together to build multipliers, post your score to the live leaderboard, and master ten hand-crafted tracks across five distinct environments.
 
 Everything — physics, rendering, audio, UI, and leaderboard — lives in a single `index.html` file.
 
 ---
 
 ## Tracks
+
+### Series I
 
 | Track | Subtitle | Environment | Laps | Character |
 |---|---|---|---|---|
@@ -24,7 +26,17 @@ Everything — physics, rendering, audio, UI, and leaderboard — lives in a sin
 | **TŌGE** | Mountain Pass | Water | 2 | Wide hairpins, elevation feel |
 | **KANSEI** | Perfection | Night | 3 | Grand Prix layout, varied corner radius |
 
-Each track has a unique accent colour and atmospheric environment — rain, snow, desert heat haze, floating petals, or city stars.
+### Series II — unlocked by completing all Series I tracks
+
+| Track | Subtitle | Environment | Laps | Character |
+|---|---|---|---|---|
+| **ARASHI** | The Storm | Night | 4 | Tight street circuit, narrow and technical |
+| **KASOKU** | Acceleration | Desert | 5 | Long high-speed loop with a chicane infield |
+| **TATSUMAKI** | Whirlwind | Forest | 4 | Winding complex with linked hairpins |
+| **YŪGURE** | Twilight | Water | 4 | Sweeping coastal circuit, flowing but deceptive |
+| **KYOKUCHI** | Pinnacle | Snow | 5 | The ultimate — narrow, icy, unforgiving |
+
+Series II tracks are longer, narrower, and more demanding than Series I.
 
 ---
 
@@ -85,7 +97,7 @@ When the drift ends, `floor(combo × multiplier)` is added to your race total. H
 
 ## Leaderboard
 
-Scores are saved to Firebase Realtime Database — one entry per player per track (highest score wins). The top 5 for each track are displayed in-game.
+Scores are saved to Firebase Realtime Database — one entry per player per track (highest score wins). The top 5 for each track are displayed in-game, with separate Series I / Series II tabs.
 
 ---
 
