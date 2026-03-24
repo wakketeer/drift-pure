@@ -1091,7 +1091,7 @@ function renderMenuBg() {
     const tt = mb.t - off;
     const [gx, gy] = lemPt(tt);
     const [gx2,gy2] = lemPt(tt + 0.012);
-    const ga = Math.atan2(gy2-gy, gx2-gx);
+    const ga = Math.atan2(gy2-gy, gx2-gx) - PI/2;
     drawCarBody(ctx, gx, gy, ga, '#ffffff', 2.2, i === 0 ? 0.08 : 0.04);
   });
 
@@ -1115,7 +1115,7 @@ function renderMenuBg() {
 
   // ── Headlight beams ──
   // ── Headlight beams ──
-  const carFwd = mb.angle + PI/2;
+  const carFwd = mb.angle;
   for (const side of [-1, 1]) {
     const hx = mb.x + Math.cos(carFwd)*22 + Math.cos(carFwd+PI/2)*side*8;
     const hy = mb.y + Math.sin(carFwd)*22 + Math.sin(carFwd+PI/2)*side*8;
@@ -1134,7 +1134,7 @@ function renderMenuBg() {
   }
 
   // ── Lead car silhouette ──
-  drawCarBody(ctx, mb.x, mb.y, mb.angle, '#ffffff', 2.6, 0.28);
+  drawCarBody(ctx, mb.x, mb.y, mb.angle - PI/2, '#ffffff', 2.6, 0.28);
 
   // ── Vignette (stronger on dark bg) ──
   const vig = ctx.createRadialGradient(W/2, H/2, Math.min(W,H)*0.15, W/2, H/2, Math.max(W,H)*0.78);
