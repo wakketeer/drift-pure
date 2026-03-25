@@ -586,7 +586,7 @@ function createTracks() {
     {x:-580,y:520}, {x:-220,y:720}
   ], 165, 16);
   tracks[8] = {
-    name: 'YŪGURE', subtitle: 'Twilight', accent: '#E67E22', laps: 4, unlock: 0, bgColor: '#08101e', biome: 'water',
+    name: 'YŪGURE', subtitle: 'Twilight', accent: '#E67E22', laps: 4, unlock: 0, bgColor: '#08101e', biome: 'water', bridge: {x: -185, y: 446, r: 120},
     walls: t9.walls, checkpoints: t9.checkpoints,
     startPos: t9.start, startAngle: t9.startAngle,
     decorations: generateDecorations(0, 0, 1300, 1200, 40)
@@ -752,7 +752,7 @@ class Car {
     this.x += this.vx * dt;
     this.y += this.vy * dt;
 
-    this.collideWalls(walls);
+    this.collideWalls(walls, currentTrack && currentTrack.bridge);
     if (this.tireMarks.length > 2000) this.tireMarks = this.tireMarks.slice(-1500);
     for (let i = this.particles.length - 1; i >= 0; i--) {
       const p = this.particles[i];
@@ -763,10 +763,15 @@ class Car {
     updateEngineSound(Math.min(1, Math.abs(this.speed) / 300), gas);
   }
 
-  collideWalls(walls) {
+  collideWalls(walls, bridge) {
     this.hitWall = false;
     const corners = this.getCorners();
     for (const wall of walls) {
+      if (bridge) {
+        const mx = (wall.x1 + wall.x2) / 2, my = (wall.y1 + wall.y2) / 2;
+        const dx = mx - bridge.x, dy = my - bridge.y;
+        if (dx*dx + dy*dy < bridge.r * bridge.r) continue;
+      }
       for (const c of corners) {
         const dist = ptSegDist(c.x, c.y, wall.x1, wall.y1, wall.x2, wall.y2);
         if (dist < 3) {
@@ -1819,6 +1824,70 @@ function renderStars() {
   }
 }
 
+function renderBridgeUnder(ctx, track) {
+  const br = track.bridge;
+  const walls = track.walls;
+  // Shadow cast by the overpass onto the underpass surface
+  ctx.save();
+  ctx.beginPath(); ctx.arc(br.x, br.y, br.r, 0, Math.PI * 2); ctx.clip();
+  ctx.fillStyle = 'rgba(0,0,0,0.32)';
+  ctx.fillRect(br.x - br.r, br.y - br.r, br.r * 2, br.r * 2);
+  ctx.restore();
+  // Draw overpass deck and face-shadow on top, before the car
+  const SURFACE = {forest:'rgba(205,210,215,0.97)',desert:'rgba(218,208,192,0.97)',snow:'rgba(228,234,242,0.97)',water:'rgba(200,210,220,0.97)',night:'rgba(150,155,165,0.97)'};
+  const surfColor = SURFACE[track.biome] || 'rgba(205,210,215,0.97)';
+  const overWalls = getBridgeOverpassWalls(walls, br);
+  ctx.fillStyle = surfColor;
+  for (const [inn, out] of overWalls) {
+    ctx.beginPath();
+    ctx.moveTo(inn.x1,inn.y1); ctx.lineTo(inn.x2,inn.y2);
+    ctx.lineTo(out.x2,out.y2); ctx.lineTo(out.x1,out.y1);
+    ctx.closePath(); ctx.fill();
+  }
+  // Curbing on overpass
+  ctx.lineCap = 'butt';
+  overWalls.forEach(([inn,out],j) => {
+    ctx.strokeStyle = Math.floor(j/5)%2===0 ? '#e8e2d8' : '#b02020'; ctx.lineWidth = 11;
+    ctx.beginPath(); ctx.moveTo(inn.x1,inn.y1); ctx.lineTo(inn.x2,inn.y2); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(out.x1,out.y1); ctx.lineTo(out.x2,out.y2); ctx.stroke();
+  });
+  // Barrier face shadow (shifted down 4px like main walls)
+  ctx.save(); ctx.translate(0,4);
+  ctx.strokeStyle = '#1a2a36'; ctx.lineWidth = 6; ctx.lineCap = 'round';
+  for (const [inn,out] of overWalls) {
+    ctx.beginPath(); ctx.moveTo(inn.x1,inn.y1); ctx.lineTo(inn.x2,inn.y2); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(out.x1,out.y1); ctx.lineTo(out.x2,out.y2); ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function renderBridgeOver(ctx, track) {
+  // Barrier top edges drawn AFTER the car so they appear above it (under-bridge look)
+  const br = track.bridge;
+  const overWalls = getBridgeOverpassWalls(track.walls, br);
+  ctx.strokeStyle = '#4d6475'; ctx.lineWidth = 3; ctx.lineCap = 'round';
+  for (const [inn,out] of overWalls) {
+    ctx.beginPath(); ctx.moveTo(inn.x1,inn.y1); ctx.lineTo(inn.x2,inn.y2); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(out.x1,out.y1); ctx.lineTo(out.x2,out.y2); ctx.stroke();
+  }
+}
+
+function getBridgeOverpassWalls(walls, br) {
+  const result = [];
+  for (let i = 0; i < walls.length - 1; i += 2) {
+    const inn = walls[i], out = walls[i+1];
+    const mx = (inn.x1+inn.x2+out.x1+out.x2)/4, my = (inn.y1+inn.y2+out.y1+out.y2)/4;
+    const dx = mx - br.x, dy = my - br.y;
+    if (dx*dx + dy*dy < br.r * br.r) {
+      // Classify by wall orientation: overpass runs ~N-S (closing seg), underpass ~NW
+      const wdx = inn.x2 - inn.x1, wdy = inn.y2 - inn.y1;
+      const normDeg = (Math.atan2(wdy, wdx) * 180 / Math.PI % 180 + 180) % 180;
+      if (normDeg > 60 && normDeg < 120) result.push([inn, out]);
+    }
+  }
+  return result;
+}
+
 function renderGame() {
   ctx.fillStyle = currentTrack ? currentTrack.bgColor : '#4a6b3a';
   ctx.fillRect(0, 0, W, H);
@@ -1906,6 +1975,9 @@ function renderGame() {
   ctx.strokeStyle = '#4d6475'; ctx.lineWidth = 3;
   for (const w of walls) { ctx.beginPath(); ctx.moveTo(w.x1, w.y1); ctx.lineTo(w.x2, w.y2); ctx.stroke(); }
 
+  // Bridge overpass: deck + barrier faces drawn before car (car passes under)
+  if (currentTrack.bridge) renderBridgeUnder(ctx, currentTrack);
+
   // Particles (tire smoke + engine damage smoke)
   for (const p of car.particles) {
     const a = p.life / p.maxLife;
@@ -1920,6 +1992,10 @@ function renderGame() {
 
   // Car
   drawCar(ctx, car);
+
+  // Bridge overpass: barrier tops drawn AFTER car so they occlude it (under-bridge look)
+  if (currentTrack.bridge) renderBridgeOver(ctx, currentTrack);
+
   ctx.restore();
 
   // Screen-space foreground effects (in front of world)
