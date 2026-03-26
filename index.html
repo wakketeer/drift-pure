@@ -56,7 +56,6 @@ const menuBg = {
 
 // --- SAVE DATA ---
 let saveData = {
-  unlockedCars: [true, true, true, true],
   unlockedTracks: [true, true, true, true, true, false, false, false, false, false],
   bestScores: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
   bestTimes: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
@@ -312,7 +311,6 @@ function refreshLeaderboard() {
       .then(snap => {
         // Use snap.val() + Object.values() — avoids snap.forEach ordering issues
         const raw = snap.val();
-        console.log('[LB DEBUG] ' + trackKey + ' raw:', JSON.stringify(raw));
         const entries = raw ? Object.values(raw) : [];
         entries.sort((a, b) => b.score - a.score);
         leaderboardByTrack[track.name] = entries.slice(0, 5);
@@ -964,11 +962,6 @@ function finishRace() {
     laps: lapCount,
     new_best: isNewBest
   });
-  for (let i = 0; i < cars.length; i++) {
-    if (!saveData.unlockedCars[i] && cars[i].unlock && saveData.totalDriftScore >= cars[i].unlock) {
-      saveData.unlockedCars[i] = true; playUnlock();
-    }
-  }
   // Series II unlock: all 5 Series I tracks must be completed at least once
   if (!saveData.series2Unlocked) {
     const allSeries1Done = [0,1,2,3,4].every(i => saveData.bestTimes[i] > 0);
@@ -1042,7 +1035,7 @@ function getCarButtons() {
   const startX = (W - totalW) / 2;
   return cars.map((c, i) => ({
     label: c.name, x: startX + i * (cardW + 12), y: H * 0.3,
-    w: cardW, h: cardH, idx: i, unlocked: saveData.unlockedCars[i]
+    w: cardW, h: cardH, idx: i, unlocked: true
   }));
 }
 
@@ -1428,31 +1421,28 @@ function renderCarSelect() {
   buttons.forEach((btn, i) => {
     const c = cars[i];
     const sel = selectHover === i;
-    const ul = btn.unlocked;
-    ctx.globalAlpha = ul ? 1 : 0.4;
-    ctx.fillStyle = sel ? (ul ? c.color : MID) : WHITE;
+    ctx.fillStyle = sel ? c.color : WHITE;
     roundRect(ctx, btn.x, btn.y, btn.w, btn.h, 8);
     ctx.fill();
-    ctx.strokeStyle = sel ? (ul ? c.color : MID) : '#ddd';
+    ctx.strokeStyle = sel ? c.color : '#ddd';
     ctx.lineWidth = sel ? 2 : 1;
     roundRect(ctx, btn.x, btn.y, btn.w, btn.h, 8);
     ctx.stroke();
-    ctx.globalAlpha = 1;
 
     // Car preview
     ctx.save();
     ctx.translate(btn.x + btn.w/2, btn.y + btn.h * 0.3);
-    drawCarBody(ctx, 0, 0, 0, c.color, 1.5, ul ? 1 : 0.3);
+    drawCarBody(ctx, 0, 0, 0, c.color, 1.5, 1);
     ctx.restore();
 
-    ctx.fillStyle = sel ? WHITE : (ul ? DARK : MID);
+    ctx.fillStyle = sel ? WHITE : DARK;
     ctx.font = `bold ${Math.min(13, btn.w/8)}px Helvetica Neue, Arial`;
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillText(c.name, btn.x + btn.w/2, btn.y + btn.h * 0.55);
     ctx.font = `200 ${Math.min(10, btn.w/10)}px Helvetica Neue, Arial`;
-    ctx.fillText(ul ? c.desc : `${c.unlock.toLocaleString()} PTS`, btn.x + btn.w/2, btn.y + btn.h * 0.65);
+    ctx.fillText(c.desc, btn.x + btn.w/2, btn.y + btn.h * 0.65);
 
-    if (ul) {
+    {
       const barW = btn.w * 0.6;
       const bx = btn.x + btn.w/2 - barW/2;
       const by = btn.y + btn.h * 0.74;
@@ -2343,12 +2333,10 @@ function handleClickAt(mx, my) {
     const buttons = getCarButtons();
     for (const b of buttons) {
       if (mx >= b.x && mx <= b.x + b.w && my >= b.y && my <= b.y + b.h) {
-        if (b.unlocked) {
-          playMenuSelect();
-          saveData.selectedCar = b.idx;
-          saveSave();
-          startRace(saveData.selectedTrack, b.idx);
-        }
+        playMenuSelect();
+        saveData.selectedCar = b.idx;
+        saveSave();
+        startRace(saveData.selectedTrack, b.idx);
         return;
       }
     }
@@ -2460,7 +2448,7 @@ document.addEventListener('keydown', e => {
       playMenuSelect(); saveData.selectedTrack = selectHover; saveSave();
       gameState = 'carSelect'; selectHover = saveData.selectedCar;
     }
-    else if (gameState === 'carSelect' && saveData.unlockedCars[selectHover]) {
+    else if (gameState === 'carSelect') {
       playMenuSelect(); saveData.selectedCar = selectHover; saveSave();
       startRace(saveData.selectedTrack, selectHover);
     }
