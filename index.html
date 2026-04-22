@@ -708,8 +708,8 @@ class Car {
       if (frameCount % 2 === 0) {
         const rearX = this.x - fx * this.wheelBase * 0.5;
         const rearY = this.y - fy * this.wheelBase * 0.5;
-        this.tireMarks.push({ x: rearX - fy * this.width * 0.4, y: rearY + fx * this.width * 0.4 });
-        this.tireMarks.push({ x: rearX + fy * this.width * 0.4, y: rearY - fx * this.width * 0.4 });
+        this.tireMarks.push({ x: rearX - fy * this.width * 0.4, y: rearY + fx * this.width * 0.4, angle: this.angle });
+        this.tireMarks.push({ x: rearX + fy * this.width * 0.4, y: rearY - fx * this.width * 0.4, angle: this.angle });
         if (Math.random() > 0.3) {
           this.particles.push({
             x: rearX + (Math.random()-0.5)*12, y: rearY + (Math.random()-0.5)*12,
@@ -878,7 +878,7 @@ function updateRace(dt) {
       const a = Math.random() * TAU;
       const spd = 90 + Math.random() * 160;
       sparks.push({
-        x: car.x, y: car.y,
+        x: car.x, y: car.y, px: car.x, py: car.y,
         vx: Math.cos(a) * spd + car.vx * 0.25,
         vy: Math.sin(a) * spd + car.vy * 0.25,
         life: 0.2 + Math.random() * 0.3,
@@ -908,6 +908,7 @@ function updateRace(dt) {
   // Update sparks
   for (let i = sparks.length - 1; i >= 0; i--) {
     const s = sparks[i];
+    s.px = s.x; s.py = s.y;
     s.x += s.vx * dt; s.y += s.vy * dt;
     s.vx *= 0.78; s.vy *= 0.78;
     s.life -= dt;
@@ -1291,16 +1292,14 @@ function renderMenu() {
   const buttons = getMenuButtons();
   buttons.forEach((btn, i) => {
     const hover = menuHover === i;
-    // Button background
-    ctx.fillStyle = hover ? ACCENT : WHITE;
-    ctx.strokeStyle = hover ? ACCENT : '#ddd';
+    ctx.fillStyle = hover ? ACCENT : 'rgba(255,255,255,0.10)';
+    ctx.strokeStyle = hover ? ACCENT : 'rgba(255,255,255,0.22)';
     ctx.lineWidth = hover ? 2 : 1;
     roundRect(ctx, btn.x, btn.y, btn.w, btn.h, 6);
     ctx.fill();
     roundRect(ctx, btn.x, btn.y, btn.w, btn.h, 6);
     ctx.stroke();
-    // Label
-    ctx.fillStyle = hover ? WHITE : DARK;
+    ctx.fillStyle = WHITE;
     ctx.font = `${hover ? 'bold' : '300'} ${Math.min(18, W/22)}px Helvetica Neue, Arial`;
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillText(btn.label, btn.x + btn.w/2, btn.y + btn.h/2);
@@ -1354,9 +1353,9 @@ function drawTrackMinimap(track, bx, by, bw, bh) {
 }
 
 function renderTrackSelect() {
-  ctx.fillStyle = BG;
+  ctx.fillStyle = '#0a1018';
   ctx.fillRect(0, 0, W, H);
-  ctx.fillStyle = DARK;
+  ctx.fillStyle = WHITE;
   ctx.font = `bold ${Math.min(28, W/14)}px Helvetica Neue, Arial`;
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.fillText('SELECT TRACK', W/2, H * 0.06);
@@ -1371,7 +1370,7 @@ function renderTrackSelect() {
   ctx.fillText('// SERIES I', W * 0.06, s1StartY - 9);
 
   // Series II header
-  const s2Color = saveData.series2Unlocked ? ACCENT : MID;
+  const s2Color = saveData.series2Unlocked ? ACCENT : 'rgba(255,255,255,0.28)';
   ctx.fillStyle = s2Color;
   const s2Label = saveData.series2Unlocked
     ? '// SERIES II'
@@ -1383,10 +1382,10 @@ function renderTrackSelect() {
     const sel = selectHover === i;
     const ul = btn.unlocked;
     ctx.globalAlpha = ul ? 1 : 0.35;
-    ctx.fillStyle = sel ? (ul ? t.accent : MID) : WHITE;
+    ctx.fillStyle = sel ? (ul ? t.accent : 'rgba(255,255,255,0.15)') : 'rgba(255,255,255,0.07)';
     roundRect(ctx, btn.x, btn.y, btn.w, btn.h, 8);
     ctx.fill();
-    ctx.strokeStyle = sel ? (ul ? t.accent : MID) : '#ddd';
+    ctx.strokeStyle = sel ? (ul ? t.accent : 'rgba(255,255,255,0.25)') : 'rgba(255,255,255,0.12)';
     ctx.lineWidth = sel ? 2 : 1;
     roundRect(ctx, btn.x, btn.y, btn.w, btn.h, 8);
     ctx.stroke();
@@ -1395,47 +1394,47 @@ function renderTrackSelect() {
     if (ul) {
       drawTrackMinimap(t, btn.x + 4, btn.y + 4, btn.w - 8, btn.h * 0.44);
     } else {
-      // Lock icon
-      ctx.fillStyle = MID; ctx.globalAlpha = 0.3;
+      ctx.fillStyle = 'rgba(255,255,255,0.25)'; ctx.globalAlpha = 0.6;
       ctx.font = `${Math.min(20, btn.h * 0.35)}px Helvetica Neue, Arial`;
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.fillText('🔒', btn.x + btn.w/2, btn.y + btn.h * 0.28);
       ctx.globalAlpha = 1;
     }
-    ctx.fillStyle = sel ? WHITE : (ul ? DARK : MID);
+    ctx.fillStyle = sel ? WHITE : (ul ? WHITE : 'rgba(255,255,255,0.5)');
     ctx.font = `bold ${Math.min(11, btn.w/10)}px Helvetica Neue, Arial`;
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillText(t.name, btn.x + btn.w/2, btn.y + btn.h * 0.57);
     ctx.font = `200 ${Math.min(9, btn.w/14)}px Helvetica Neue, Arial`;
+    ctx.fillStyle = sel ? 'rgba(255,255,255,0.75)' : 'rgba(255,255,255,0.45)';
     ctx.fillText(ul ? t.subtitle : 'LOCKED', btn.x + btn.w/2, btn.y + btn.h * 0.70);
     if (ul && saveData.bestScores[i] > 0) {
-      ctx.fillStyle = sel ? 'rgba(255,255,255,0.7)' : MID;
+      ctx.fillStyle = sel ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.38)';
       ctx.font = `200 ${Math.min(8, btn.w/16)}px Helvetica Neue, Arial`;
       ctx.fillText(`BEST: ${saveData.bestScores[i].toLocaleString()}`, btn.x + btn.w/2, btn.y + btn.h * 0.81);
     }
     if (ul) {
-      ctx.fillStyle = sel ? 'rgba(255,255,255,0.5)' : MID;
+      ctx.fillStyle = sel ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.3)';
       ctx.font = `200 ${Math.min(8, btn.w/16)}px Helvetica Neue, Arial`;
       ctx.fillText(`${t.laps} LAPS`, btn.x + btn.w/2, btn.y + btn.h * 0.92);
     }
   });
 
-  ctx.fillStyle = MID; ctx.textBaseline = 'alphabetic';
+  ctx.fillStyle = 'rgba(255,255,255,0.3)'; ctx.textBaseline = 'alphabetic';
   ctx.font = `200 14px Helvetica Neue, Arial`;
   ctx.textAlign = 'center';
   ctx.fillText('TAP HERE OR ESC TO GO BACK', W/2, H * 0.97);
 }
 
 function renderCarSelect() {
-  ctx.fillStyle = BG;
+  ctx.fillStyle = '#0a1018';
   ctx.fillRect(0, 0, W, H);
-  ctx.fillStyle = DARK;
+  ctx.fillStyle = WHITE;
   ctx.font = `bold ${Math.min(32, W/12)}px Helvetica Neue, Arial`;
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.fillText('SELECT CAR', W/2, H * 0.08);
 
   // Track name reminder
-  ctx.fillStyle = MID;
+  ctx.fillStyle = 'rgba(255,255,255,0.42)';
   ctx.font = `200 ${Math.min(14, W/25)}px Helvetica Neue, Arial`;
   ctx.fillText(`TRACK: ${tracks[saveData.selectedTrack].name}`, W/2, H * 0.16);
 
@@ -1443,10 +1442,10 @@ function renderCarSelect() {
   buttons.forEach((btn, i) => {
     const c = cars[i];
     const sel = selectHover === i;
-    ctx.fillStyle = sel ? c.color : WHITE;
+    ctx.fillStyle = sel ? c.color : 'rgba(255,255,255,0.07)';
     roundRect(ctx, btn.x, btn.y, btn.w, btn.h, 8);
     ctx.fill();
-    ctx.strokeStyle = sel ? c.color : '#ddd';
+    ctx.strokeStyle = sel ? c.color : 'rgba(255,255,255,0.12)';
     ctx.lineWidth = sel ? 2 : 1;
     roundRect(ctx, btn.x, btn.y, btn.w, btn.h, 8);
     ctx.stroke();
@@ -1457,10 +1456,11 @@ function renderCarSelect() {
     drawCarBody(ctx, 0, 0, 0, c.color, 1.5, 1);
     ctx.restore();
 
-    ctx.fillStyle = sel ? WHITE : DARK;
+    ctx.fillStyle = WHITE;
     ctx.font = `bold ${Math.min(13, btn.w/8)}px Helvetica Neue, Arial`;
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillText(c.name, btn.x + btn.w/2, btn.y + btn.h * 0.55);
+    ctx.fillStyle = sel ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.42)';
     ctx.font = `200 ${Math.min(10, btn.w/10)}px Helvetica Neue, Arial`;
     ctx.fillText(c.desc, btn.x + btn.w/2, btn.y + btn.h * 0.65);
 
@@ -1471,11 +1471,11 @@ function renderCarSelect() {
       const labels = ['PWR', 'GRP', 'DFT'];
       const vals = [c.power / 5000, c.grip, c.driftBonus / 1.5];
       for (let j = 0; j < 3; j++) {
-        ctx.fillStyle = sel ? 'rgba(255,255,255,0.3)' : '#eee';
+        ctx.fillStyle = 'rgba(255,255,255,0.12)';
         ctx.fillRect(bx, by + j * 14, barW, 4);
         ctx.fillStyle = sel ? WHITE : c.color;
         ctx.fillRect(bx, by + j * 14, barW * vals[j], 4);
-        ctx.fillStyle = sel ? 'rgba(255,255,255,0.6)' : MID;
+        ctx.fillStyle = 'rgba(255,255,255,0.45)';
         ctx.font = '8px Helvetica Neue, Arial';
         ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
         ctx.fillText(labels[j], bx, by + j * 14 - 5);
@@ -1484,7 +1484,7 @@ function renderCarSelect() {
     }
   });
 
-  ctx.fillStyle = MID; ctx.textBaseline = 'alphabetic';
+  ctx.fillStyle = 'rgba(255,255,255,0.3)'; ctx.textBaseline = 'alphabetic';
   ctx.font = `200 14px Helvetica Neue, Arial`;
   ctx.textAlign = 'center';
   ctx.fillText('TAP HERE OR ESC TO GO BACK', W/2, H * 0.95);
@@ -1496,11 +1496,11 @@ function getLeaderboardTabLayout() {
 }
 
 function renderLeaderboard() {
-  ctx.fillStyle = BG;
+  ctx.fillStyle = '#0a1018';
   ctx.fillRect(0, 0, W, H);
 
   // Title
-  ctx.fillStyle = DARK;
+  ctx.fillStyle = WHITE;
   ctx.font = 'bold ' + Math.min(28, W/14) + 'px Helvetica Neue, Arial';
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.fillText('LEADERBOARD', W/2, H * 0.046);
@@ -1515,12 +1515,12 @@ function renderLeaderboard() {
   ];
   tabs.forEach(tab => {
     ctx.globalAlpha = tab.locked ? 0.35 : 1;
-    ctx.fillStyle = tab.active ? ACCENT : WHITE;
-    ctx.strokeStyle = tab.active ? ACCENT : '#ddd';
+    ctx.fillStyle = tab.active ? ACCENT : 'rgba(255,255,255,0.08)';
+    ctx.strokeStyle = tab.active ? ACCENT : 'rgba(255,255,255,0.18)';
     ctx.lineWidth = tab.active ? 2 : 1;
     roundRect(ctx, tab.x, tabY, tabW, tabH, 5); ctx.fill();
     roundRect(ctx, tab.x, tabY, tabW, tabH, 5); ctx.stroke();
-    ctx.fillStyle = tab.active ? WHITE : DARK;
+    ctx.fillStyle = WHITE;
     ctx.font = `${tab.active ? 'bold' : '300'} ${Math.min(11, W/40)}px Helvetica Neue, Arial`;
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillText(tab.label, tab.x + tabW/2, tabY + tabH/2);
@@ -1529,7 +1529,7 @@ function renderLeaderboard() {
 
   ctx.globalAlpha = lbTabFade;
   if (!leaderboardLoaded) {
-    ctx.fillStyle = MID;
+    ctx.fillStyle = 'rgba(255,255,255,0.42)';
     ctx.font = '200 ' + Math.min(14, W/25) + 'px Helvetica Neue, Arial';
     ctx.textAlign = 'center';
     ctx.fillText('Loading...', W/2, H * 0.5);
@@ -1562,7 +1562,7 @@ function renderLeaderboard() {
       y += headerH;
 
       if (entries.length === 0) {
-        ctx.fillStyle = MID;
+        ctx.fillStyle = 'rgba(255,255,255,0.35)';
         ctx.font = '200 ' + Math.min(10, W/52) + 'px Helvetica Neue, Arial';
         ctx.textAlign = 'left';
         ctx.fillText('No scores yet — be first!', lx + W * 0.05, y + rowH / 2);
@@ -1572,17 +1572,17 @@ function renderLeaderboard() {
           const isMe    = entry.name === playerName;
           const isFirst = i === 0;
           if (isMe) {
-            ctx.fillStyle = 'rgba(52,152,219,0.09)';
+            ctx.fillStyle = 'rgba(52,152,219,0.12)';
             ctx.fillRect(lx, y, rw, rowH);
           }
-          ctx.fillStyle = isFirst ? track.accent : MID;
+          ctx.fillStyle = isFirst ? track.accent : 'rgba(255,255,255,0.35)';
           ctx.font = 'bold ' + Math.min(10, W/52) + 'px Helvetica Neue, Arial';
           ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
           ctx.fillText('#' + (i + 1), lx, y + rowH / 2);
-          ctx.fillStyle = isMe ? ACCENT2 : DARK;
+          ctx.fillStyle = isMe ? ACCENT2 : WHITE;
           ctx.font = (isFirst ? 'bold' : '300') + ' ' + Math.min(11, W/50) + 'px Helvetica Neue, Arial';
           ctx.fillText((entry.name || 'Anon').slice(0, 16), lx + W * 0.055, y + rowH / 2);
-          ctx.fillStyle = isFirst ? track.accent : DARK;
+          ctx.fillStyle = isFirst ? track.accent : 'rgba(255,255,255,0.85)';
           ctx.font = 'bold ' + Math.min(11, W/50) + 'px Helvetica Neue, Arial';
           ctx.textAlign = 'right';
           ctx.fillText((entry.score || 0).toLocaleString(), lx + rw, y + rowH / 2);
@@ -1594,7 +1594,7 @@ function renderLeaderboard() {
   }
 
   ctx.globalAlpha = 1;
-  ctx.fillStyle = MID; ctx.textBaseline = 'alphabetic';
+  ctx.fillStyle = 'rgba(255,255,255,0.3)'; ctx.textBaseline = 'alphabetic';
   ctx.font = '200 13px Helvetica Neue, Arial';
   ctx.textAlign = 'center';
   ctx.fillText('TAP HERE OR ESC TO GO BACK', W/2, H * 0.97);
@@ -1849,14 +1849,6 @@ function renderGame() {
   ctx.scale(zoom, zoom);
   ctx.translate(-camera.x, -camera.y);
 
-  // Grid
-  ctx.strokeStyle = 'rgba(44,62,80,0.03)'; ctx.lineWidth = 1;
-  const gs = 100;
-  const sx = Math.floor((camera.x - W) / gs) * gs;
-  const sy = Math.floor((camera.y - H) / gs) * gs;
-  for (let x = sx; x < camera.x + W; x += gs) { ctx.beginPath(); ctx.moveTo(x, sy); ctx.lineTo(x, camera.y+H); ctx.stroke(); }
-  for (let y = sy; y < camera.y + H; y += gs) { ctx.beginPath(); ctx.moveTo(sx, y); ctx.lineTo(camera.x+W, y); ctx.stroke(); }
-
   renderBiomeDecorations(ctx, currentTrack);
   if (currentTrack.biome === 'water') renderWaves();
 
@@ -1872,15 +1864,41 @@ function renderGame() {
     ctx.closePath(); ctx.fill();
   }
 
-  // Tire marks
-  ctx.fillStyle = 'rgba(44,62,80,0.12)';
-  for (const m of car.tireMarks) { ctx.beginPath(); ctx.arc(m.x, m.y, 2.5, 0, TAU); ctx.fill(); }
+  // Dashed center line
+  ctx.setLineDash([14, 11]);
+  ctx.strokeStyle = 'rgba(255,255,255,0.28)';
+  ctx.lineWidth = 2; ctx.lineCap = 'butt';
+  ctx.beginPath();
+  for (let i = 0; i < walls.length - 1; i += 2) {
+    const inn = walls[i], out = walls[i+1];
+    const cx1 = (inn.x1 + out.x1) / 2, cy1 = (inn.y1 + out.y1) / 2;
+    const cx2 = (inn.x2 + out.x2) / 2, cy2 = (inn.y2 + out.y2) / 2;
+    if (i === 0) ctx.moveTo(cx1, cy1); else ctx.lineTo(cx1, cy1);
+    ctx.lineTo(cx2, cy2);
+  }
+  ctx.closePath(); ctx.stroke();
+  ctx.setLineDash([]); ctx.lineCap = 'round';
 
-  // Impact sparks
+  // Tire marks — angle-oriented strips
+  ctx.strokeStyle = 'rgba(30,40,55,0.20)';
+  ctx.lineWidth = 5; ctx.lineCap = 'butt';
+  ctx.beginPath();
+  for (const m of car.tireMarks) {
+    const cos = Math.cos(m.angle), sin = Math.sin(m.angle);
+    ctx.moveTo(m.x - cos * 5, m.y - sin * 5);
+    ctx.lineTo(m.x + cos * 5, m.y + sin * 5);
+  }
+  ctx.stroke(); ctx.lineCap = 'round';
+
+  // Impact sparks — with short motion trail
   for (const s of sparks) {
     const alpha = s.life / s.maxLife;
-    ctx.fillStyle = 'rgba(' + s.r + ',' + s.g + ',' + s.b + ',' + alpha + ')';
+    const col = 'rgba(' + s.r + ',' + s.g + ',' + s.b + ',';
     const sz = Math.max(0.3, alpha * 3.5);
+    ctx.strokeStyle = col + (alpha * 0.55) + ')';
+    ctx.lineWidth = sz * 1.4; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(s.px, s.py); ctx.lineTo(s.x, s.y); ctx.stroke();
+    ctx.fillStyle = col + alpha + ')';
     ctx.beginPath(); ctx.arc(s.x, s.y, sz, 0, TAU); ctx.fill();
   }
 
@@ -1944,6 +1962,12 @@ function renderGame() {
   drawCar(ctx, car);
 
   ctx.restore();
+
+  // Vignette
+  const vig = ctx.createRadialGradient(W/2, H/2, Math.min(W,H)*0.15, W/2, H/2, Math.max(W,H)*0.72);
+  vig.addColorStop(0, 'rgba(0,0,0,0)');
+  vig.addColorStop(1, 'rgba(0,0,0,0.58)');
+  ctx.fillStyle = vig; ctx.fillRect(0, 0, W, H);
 
   // Screen-space foreground effects (in front of world)
   if (currentTrack.biome === 'snow') renderSnowfall();
@@ -2098,24 +2122,35 @@ function renderHUD() {
   const speedKmh = Math.round(Math.abs(car.speed) * 1.2);
   ctx.textBaseline = 'alphabetic';
 
-  ctx.fillStyle = DARK;
+  // Dark backdrop panels
+  const HUD_PANEL = 'rgba(8,14,22,0.65)';
+  ctx.fillStyle = HUD_PANEL;
+  roundRect(ctx, 8, H - 82, 158, 72, 8); ctx.fill();
+  roundRect(ctx, W - 168, 8, 158, 110, 8); ctx.fill();
+  roundRect(ctx, 8, 8, 172, 58, 8); ctx.fill();
+
+  const HUD_LABEL = 'rgba(255,255,255,0.48)';
+  const HUD_VALUE = '#FFFFFF';
+
+  ctx.fillStyle = HUD_VALUE;
   ctx.font = `bold ${Math.min(48, W/10)}px Helvetica Neue, Arial`;
   ctx.textAlign = 'left';
   ctx.fillText(speedKmh, 20, H - 30);
+  ctx.fillStyle = HUD_LABEL;
   ctx.font = `200 ${Math.min(14, W/28)}px Helvetica Neue, Arial`;
   ctx.fillText('KM/H', 20, H - 55);
 
   ctx.textAlign = 'right';
-  ctx.fillStyle = MID;
+  ctx.fillStyle = HUD_LABEL;
   ctx.font = `200 ${Math.min(14, W/28)}px Helvetica Neue, Arial`;
   ctx.fillText('LAP', W-20, 30);
-  ctx.fillStyle = DARK;
+  ctx.fillStyle = HUD_VALUE;
   ctx.font = `bold ${Math.min(32, W/14)}px Helvetica Neue, Arial`;
   ctx.fillText(`${Math.min(lapCount+1, currentTrack.laps)}/${currentTrack.laps}`, W-20, 60);
-  ctx.fillStyle = MID;
+  ctx.fillStyle = HUD_LABEL;
   ctx.font = `200 ${Math.min(14, W/28)}px Helvetica Neue, Arial`;
   ctx.fillText('TIME', W-20, 85);
-  ctx.fillStyle = DARK;
+  ctx.fillStyle = HUD_VALUE;
   ctx.font = `300 ${Math.min(20, W/20)}px Helvetica Neue, Arial`;
   ctx.fillText(formatTime(raceTime), W-20, 105);
 
@@ -2123,7 +2158,7 @@ function renderHUD() {
   ctx.fillStyle = currentTrack.accent;
   ctx.font = `bold ${Math.min(24, W/16)}px Helvetica Neue, Arial`;
   ctx.fillText(totalDriftScore.toLocaleString(), 20, 40);
-  ctx.fillStyle = MID;
+  ctx.fillStyle = HUD_LABEL;
   ctx.font = `200 ${Math.min(12, W/30)}px Helvetica Neue, Arial`;
   ctx.fillText('DRIFT SCORE', 20, 55);
 
@@ -2221,9 +2256,9 @@ function renderTouchControls() {
 }
 
 function renderPause() {
-  ctx.fillStyle = 'rgba(248,249,250,0.9)';
+  ctx.fillStyle = 'rgba(8,14,26,0.88)';
   ctx.fillRect(0, 0, W, H);
-  ctx.fillStyle = DARK;
+  ctx.fillStyle = WHITE;
   ctx.font = `bold ${Math.min(48, W/8)}px Helvetica Neue, Arial`;
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.fillText('PAUSED', W/2, H * 0.3);
@@ -2233,12 +2268,12 @@ function renderPause() {
   items.forEach((label, i) => {
     const y = H * 0.45 + i * 60;
     const hover = menuHover === i;
-    ctx.fillStyle = hover ? ACCENT : WHITE;
-    ctx.strokeStyle = hover ? ACCENT : '#ddd';
+    ctx.fillStyle = hover ? ACCENT : 'rgba(255,255,255,0.09)';
+    ctx.strokeStyle = hover ? ACCENT : 'rgba(255,255,255,0.18)';
     ctx.lineWidth = hover ? 2 : 1;
     roundRect(ctx, W/2-btnW/2, y, btnW, btnH, 6); ctx.fill();
     roundRect(ctx, W/2-btnW/2, y, btnW, btnH, 6); ctx.stroke();
-    ctx.fillStyle = hover ? WHITE : DARK;
+    ctx.fillStyle = WHITE;
     ctx.font = `${hover ? 'bold' : '300'} ${Math.min(18, W/18)}px Helvetica Neue, Arial`;
     ctx.fillText(label, W/2, y + btnH/2);
   });
@@ -2246,7 +2281,7 @@ function renderPause() {
 }
 
 function renderResults() {
-  ctx.fillStyle = 'rgba(248,249,250,0.92)';
+  ctx.fillStyle = 'rgba(10,16,28,0.95)';
   ctx.fillRect(0, 0, W, H);
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
 
@@ -2264,6 +2299,14 @@ function renderResults() {
     ctx.fillText('NEW BEST SCORE!', W/2, by + bh/2);
   }
 
+  // Stats scoreboard panel
+  const panelX = W * 0.1, panelW = W * 0.8;
+  ctx.fillStyle = 'rgba(255,255,255,0.06)';
+  roundRect(ctx, panelX, H * 0.16, panelW, 195, 10); ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+  ctx.lineWidth = 1;
+  roundRect(ctx, panelX, H * 0.16, panelW, 195, 10); ctx.stroke();
+
   const stats = [
     ['TOTAL TIME', formatTime(raceTime)],
     ['BEST LAP', bestLapTime < Infinity ? formatTime(bestLapTime) : '--'],
@@ -2272,20 +2315,20 @@ function renderResults() {
   ];
   stats.forEach((s, i) => {
     const y = H * 0.2 + i * 45;
-    ctx.fillStyle = MID;
+    ctx.fillStyle = 'rgba(255,255,255,0.42)';
     ctx.font = `200 ${Math.min(11, W/30)}px Helvetica Neue, Arial`;
     ctx.fillText(s[0], W/2, y);
-    ctx.fillStyle = DARK;
+    ctx.fillStyle = WHITE;
     ctx.font = `bold ${Math.min(22, W/16)}px Helvetica Neue, Arial`;
     ctx.fillText(s[1], W/2, y + 18);
   });
 
   if (lapTimes.length > 0) {
-    ctx.fillStyle = MID;
+    ctx.fillStyle = 'rgba(255,255,255,0.42)';
     ctx.font = `200 11px Helvetica Neue, Arial`;
     ctx.fillText('LAP TIMES', W/2, H * 0.56);
     lapTimes.forEach((lt, i) => {
-      ctx.fillStyle = lt === bestLapTime ? currentTrack.accent : DARK;
+      ctx.fillStyle = lt === bestLapTime ? currentTrack.accent : 'rgba(255,255,255,0.85)';
       ctx.font = '13px Helvetica Neue, Arial';
       ctx.fillText(`LAP ${i+1}: ${formatTime(lt)}`, W/2, H * 0.6 + i * 20);
     });
@@ -2296,12 +2339,12 @@ function renderResults() {
   items.forEach((label, i) => {
     const y = H * 0.76 + i * 52;
     const hover = menuHover === i;
-    ctx.fillStyle = hover ? currentTrack.accent : WHITE;
-    ctx.strokeStyle = hover ? currentTrack.accent : '#ddd';
+    ctx.fillStyle = hover ? currentTrack.accent : 'rgba(255,255,255,0.09)';
+    ctx.strokeStyle = hover ? currentTrack.accent : 'rgba(255,255,255,0.18)';
     ctx.lineWidth = hover ? 2 : 1;
     roundRect(ctx, W/2-btnW/2, y, btnW, btnH, 6); ctx.fill();
     roundRect(ctx, W/2-btnW/2, y, btnW, btnH, 6); ctx.stroke();
-    ctx.fillStyle = hover ? WHITE : DARK;
+    ctx.fillStyle = WHITE;
     ctx.font = `${hover ? 'bold' : '300'} ${Math.min(16, W/20)}px Helvetica Neue, Arial`;
     ctx.fillText(label, W/2, y + btnH/2);
   });
