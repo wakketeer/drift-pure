@@ -1034,26 +1034,26 @@ function getMenuButtons() {
   }));
 }
 
-function getTrackButtons() {
+function getTrackLayout() {
   const cols = Math.min(5, Math.max(1, Math.floor(W / 160)));
   const cardW = Math.min(160, (W - 40) / cols - 10);
   const cardH = cardW * 0.7;
-  const headerH = 24;
-  const gap = 10;
-  const s1Rows = Math.ceil(5 / cols);
+  const gap = 10, headerH = 24;
   const s1StartY = H * 0.16;
-  const s2StartY = s1StartY + s1Rows * (cardH + gap) + headerH + 14;
-  const totalW = cols * cardW + (cols - 1) * gap;
-  const startX = (W - totalW) / 2;
+  const s2StartY = s1StartY + Math.ceil(5 / cols) * (cardH + gap) + headerH + 14;
+  const startX = (W - (cols * cardW + (cols - 1) * gap)) / 2;
+  return { cols, cardW, cardH, gap, headerH, s1StartY, s2StartY, startX };
+}
+
+function getTrackButtons() {
+  const { cols, cardW, cardH, gap, s1StartY, s2StartY, startX } = getTrackLayout();
   return tracks.map((t, i) => {
     const isSeries2 = i >= 5;
     const si = isSeries2 ? i - 5 : i;
-    const col = si % cols;
-    const row = Math.floor(si / cols);
     const baseY = isSeries2 ? s2StartY : s1StartY;
     return {
-      label: t.name, x: startX + col * (cardW + gap), y: baseY + row * (cardH + gap),
-      w: cardW, h: cardH, idx: i, unlocked: saveData.unlockedTracks[i], series: isSeries2 ? 2 : 1
+      label: t.name, x: startX + (si % cols) * (cardW + gap), y: baseY + Math.floor(si / cols) * (cardH + gap),
+      w: cardW, h: cardH, idx: i, unlocked: saveData.unlockedTracks[i]
     };
   });
 }
@@ -1244,7 +1244,6 @@ function renderMenuBg() {
   ctx.beginPath(); ctx.arc(mb.x, mb.y, 60, 0, TAU); ctx.fill();
 
   // ── Headlight beams ──
-  // ── Headlight beams ──
   const carFwd = mb.angle;
   for (const side of [-1, 1]) {
     const hx = mb.x + Math.cos(carFwd)*22 + Math.cos(carFwd+PI/2)*side*8;
@@ -1363,14 +1362,7 @@ function renderTrackSelect() {
   ctx.fillText('SELECT TRACK', W/2, H * 0.06);
 
   const buttons = getTrackButtons();
-  const cols = Math.min(5, Math.max(1, Math.floor(W / 160)));
-  const cardW = Math.min(160, (W - 40) / cols - 10);
-  const cardH = cardW * 0.7;
-  const headerH = 24;
-  const gap = 10;
-  const s1Rows = Math.ceil(5 / cols);
-  const s1StartY = H * 0.16;
-  const s2StartY = s1StartY + s1Rows * (cardH + gap) + headerH + 14;
+  const { cardH, headerH, s1StartY, s2StartY } = getTrackLayout();
 
   // Series I header
   ctx.fillStyle = ACCENT;
@@ -1498,6 +1490,11 @@ function renderCarSelect() {
   ctx.fillText('TAP HERE OR ESC TO GO BACK', W/2, H * 0.95);
 }
 
+function getLeaderboardTabLayout() {
+  const tabW = Math.min(120, W * 0.26), tabH = 28, tabY = H * 0.08;
+  return { tabW, tabH, tabY, tab1X: W/2 - tabW - 6, tab2X: W/2 + 6 };
+}
+
 function renderLeaderboard() {
   ctx.fillStyle = BG;
   ctx.fillRect(0, 0, W, H);
@@ -1511,9 +1508,7 @@ function renderLeaderboard() {
   ctx.fillRect(W/2 - 35, H * 0.074, 70, 2);
 
   // Series tabs
-  const tabW = Math.min(120, W * 0.26), tabH = 28;
-  const tabY = H * 0.08;
-  const tab1X = W/2 - tabW - 6, tab2X = W/2 + 6;
+  const { tabW, tabH, tabY, tab1X, tab2X } = getLeaderboardTabLayout();
   const tabs = [
     { label: 'SERIES I', x: tab1X, active: leaderboardSeriesTab === 1 },
     { label: 'SERIES II', x: tab2X, active: leaderboardSeriesTab === 2, locked: !saveData.series2Unlocked }
@@ -2370,9 +2365,7 @@ function handleClickAt(mx, my) {
 
   if (gameState === 'leaderboard') {
     if (my > H * 0.9) { playMenuSelect(); gameState = 'menu'; return; }
-    // Series tabs
-    const tabW = Math.min(120, W * 0.26), tabH = 28, tabY = H * 0.08;
-    const tab1X = W/2 - tabW - 6, tab2X = W/2 + 6;
+    const { tabW, tabH, tabY, tab1X, tab2X } = getLeaderboardTabLayout();
     if (my >= tabY && my <= tabY + tabH) {
       if (mx >= tab1X && mx <= tab1X + tabW) { if (leaderboardSeriesTab !== 1) { leaderboardSeriesTab = 1; lbTabFade = 0; } playMenuSelect(); return; }
       if (mx >= tab2X && mx <= tab2X + tabW && saveData.series2Unlocked) { if (leaderboardSeriesTab !== 2) { leaderboardSeriesTab = 2; lbTabFade = 0; } playMenuSelect(); return; }
